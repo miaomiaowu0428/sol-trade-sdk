@@ -23,8 +23,8 @@
 //! - `creator_fee`: Fee for creators
 //! - `fee_recipients`: Array of fee recipient accounts
 
+use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
-use serde::{Serialize, Deserialize};
 
 use crate::constants::pumpfun::global_constants::*;
 

@@ -34,10 +34,10 @@ pub mod relayer_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// / Relayers offer a TPU and TPU forward proxy for Solana validators.
     /// / Validators can connect and fetch the TPU configuration for the relayer and start to advertise the
     /// / relayer's information in gossip.
@@ -85,9 +85,8 @@ pub mod relayer_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             RelayerClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -127,22 +126,13 @@ pub mod relayer_client {
         pub async fn get_tpu_configs(
             &mut self,
             request: impl tonic::IntoRequest<super::GetTpuConfigsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetTpuConfigsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetTpuConfigsResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/relayer.Relayer/GetTpuConfigs",
-            );
+            let path = http::uri::PathAndQuery::from_static("/relayer.Relayer/GetTpuConfigs");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("relayer.Relayer", "GetTpuConfigs"));
@@ -157,18 +147,11 @@ pub mod relayer_client {
             tonic::Response<tonic::codec::Streaming<super::SubscribePacketsResponse>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/relayer.Relayer/SubscribePackets",
-            );
+            let path = http::uri::PathAndQuery::from_static("/relayer.Relayer/SubscribePackets");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("relayer.Relayer", "SubscribePackets"));

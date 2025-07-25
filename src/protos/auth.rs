@@ -96,10 +96,10 @@ pub mod auth_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// / This service is responsible for issuing auth tokens to clients for API access.
     #[derive(Debug, Clone)]
     pub struct AuthServiceClient<T> {
@@ -144,9 +144,8 @@ pub mod auth_service_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             AuthServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -185,22 +184,14 @@ pub mod auth_service_client {
         pub async fn generate_auth_challenge(
             &mut self,
             request: impl tonic::IntoRequest<super::GenerateAuthChallengeRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GenerateAuthChallengeResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GenerateAuthChallengeResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/auth.AuthService/GenerateAuthChallenge",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/auth.AuthService/GenerateAuthChallenge");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("auth.AuthService", "GenerateAuthChallenge"));
@@ -210,22 +201,13 @@ pub mod auth_service_client {
         pub async fn generate_auth_tokens(
             &mut self,
             request: impl tonic::IntoRequest<super::GenerateAuthTokensRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GenerateAuthTokensResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GenerateAuthTokensResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/auth.AuthService/GenerateAuthTokens",
-            );
+            let path = http::uri::PathAndQuery::from_static("/auth.AuthService/GenerateAuthTokens");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("auth.AuthService", "GenerateAuthTokens"));
@@ -235,22 +217,13 @@ pub mod auth_service_client {
         pub async fn refresh_access_token(
             &mut self,
             request: impl tonic::IntoRequest<super::RefreshAccessTokenRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::RefreshAccessTokenResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::RefreshAccessTokenResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/auth.AuthService/RefreshAccessToken",
-            );
+            let path = http::uri::PathAndQuery::from_static("/auth.AuthService/RefreshAccessToken");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("auth.AuthService", "RefreshAccessToken"));

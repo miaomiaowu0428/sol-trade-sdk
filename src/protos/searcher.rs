@@ -8,10 +8,7 @@ pub struct SlotList {
 pub struct ConnectedLeadersResponse {
     /// Mapping of validator pubkey to leader slots for the current epoch.
     #[prost(map = "string, message", tag = "1")]
-    pub connected_validators: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        SlotList,
-    >,
+    pub connected_validators: ::std::collections::HashMap<::prost::alloc::string::String, SlotList>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SendBundleRequest {
@@ -56,10 +53,8 @@ pub struct ConnectedLeadersRegionedRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConnectedLeadersRegionedResponse {
     #[prost(map = "string, message", tag = "1")]
-    pub connected_validators: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ConnectedLeadersResponse,
-    >,
+    pub connected_validators:
+        ::std::collections::HashMap<::prost::alloc::string::String, ConnectedLeadersResponse>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetTipAccountsRequest {}
@@ -89,10 +84,10 @@ pub mod searcher_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct SearcherServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -136,9 +131,8 @@ pub mod searcher_service_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             SearcherServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -182,44 +176,30 @@ pub mod searcher_service_client {
             tonic::Response<tonic::codec::Streaming<super::super::bundle::BundleResult>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/searcher.SearcherService/SubscribeBundleResults",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("searcher.SearcherService", "SubscribeBundleResults"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "searcher.SearcherService",
+                "SubscribeBundleResults",
+            ));
             self.inner.server_streaming(req, path, codec).await
         }
         pub async fn send_bundle(
             &mut self,
             request: impl tonic::IntoRequest<super::SendBundleRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::SendBundleResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::SendBundleResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/searcher.SearcherService/SendBundle",
-            );
+            let path = http::uri::PathAndQuery::from_static("/searcher.SearcherService/SendBundle");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("searcher.SearcherService", "SendBundle"));
@@ -229,54 +209,40 @@ pub mod searcher_service_client {
         pub async fn get_next_scheduled_leader(
             &mut self,
             request: impl tonic::IntoRequest<super::NextScheduledLeaderRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::NextScheduledLeaderResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::NextScheduledLeaderResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/searcher.SearcherService/GetNextScheduledLeader",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("searcher.SearcherService", "GetNextScheduledLeader"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "searcher.SearcherService",
+                "GetNextScheduledLeader",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// Returns leader slots for connected jito validators during the current epoch. Only returns data for this region.
         pub async fn get_connected_leaders(
             &mut self,
             request: impl tonic::IntoRequest<super::ConnectedLeadersRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ConnectedLeadersResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::ConnectedLeadersResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/searcher.SearcherService/GetConnectedLeaders",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("searcher.SearcherService", "GetConnectedLeaders"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "searcher.SearcherService",
+                "GetConnectedLeaders",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// Returns leader slots for connected jito validators during the current epoch.
@@ -287,73 +253,50 @@ pub mod searcher_service_client {
             tonic::Response<super::ConnectedLeadersRegionedResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/searcher.SearcherService/GetConnectedLeadersRegioned",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "searcher.SearcherService",
-                        "GetConnectedLeadersRegioned",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "searcher.SearcherService",
+                "GetConnectedLeadersRegioned",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// Returns the tip accounts searchers shall transfer funds to for the leader to claim.
         pub async fn get_tip_accounts(
             &mut self,
             request: impl tonic::IntoRequest<super::GetTipAccountsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetTipAccountsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetTipAccountsResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/searcher.SearcherService/GetTipAccounts",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/searcher.SearcherService/GetTipAccounts");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("searcher.SearcherService", "GetTipAccounts"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "searcher.SearcherService",
+                "GetTipAccounts",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// Returns region the client is directly connected to, along with all available regions
         pub async fn get_regions(
             &mut self,
             request: impl tonic::IntoRequest<super::GetRegionsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetRegionsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetRegionsResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/searcher.SearcherService/GetRegions",
-            );
+            let path = http::uri::PathAndQuery::from_static("/searcher.SearcherService/GetRegions");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("searcher.SearcherService", "GetRegions"));

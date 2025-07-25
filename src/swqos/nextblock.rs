@@ -4,13 +4,13 @@ use reqwest::Client;
 use serde_json::json;
 use std::{sync::Arc, time::Instant};
 
-use std::time::Duration;
 use solana_transaction_status::UiTransactionEncoding;
+use std::time::Duration;
 
+use crate::swqos::SwqosClientTrait;
+use crate::swqos::{SwqosType, TradeType};
 use anyhow::Result;
 use solana_sdk::transaction::VersionedTransaction;
-use crate::swqos::{SwqosType, TradeType};
-use crate::swqos::SwqosClientTrait;
 
 use crate::{common::SolanaRpcClient, constants::swqos::NEXTBLOCK_TIP_ACCOUNTS};
 
@@ -24,16 +24,27 @@ pub struct NextBlockClient {
 
 #[async_trait::async_trait]
 impl SwqosClientTrait for NextBlockClient {
-    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    async fn send_transaction(
+        &self,
+        trade_type: TradeType,
+        transaction: &VersionedTransaction,
+    ) -> Result<()> {
         self.send_transaction(trade_type, transaction).await
     }
 
-    async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {
+    async fn send_transactions(
+        &self,
+        trade_type: TradeType,
+        transactions: &Vec<VersionedTransaction>,
+    ) -> Result<()> {
         self.send_transactions(trade_type, transactions).await
     }
 
     fn get_tip_account(&self) -> Result<String> {
-        let tip_account = *NEXTBLOCK_TIP_ACCOUNTS.choose(&mut rand::rng()).or_else(|| NEXTBLOCK_TIP_ACCOUNTS.first()).unwrap();
+        let tip_account = *NEXTBLOCK_TIP_ACCOUNTS
+            .choose(&mut rand::rng())
+            .or_else(|| NEXTBLOCK_TIP_ACCOUNTS.first())
+            .unwrap();
         Ok(tip_account.to_string())
     }
 
@@ -54,12 +65,22 @@ impl NextBlockClient {
             .connect_timeout(Duration::from_secs(5))
             .build()
             .unwrap();
-        Self { rpc_client: Arc::new(rpc_client), endpoint, auth_token, http_client }
+        Self {
+            rpc_client: Arc::new(rpc_client),
+            endpoint,
+            auth_token,
+            http_client,
+        }
     }
 
-    pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    pub async fn send_transaction(
+        &self,
+        trade_type: TradeType,
+        transaction: &VersionedTransaction,
+    ) -> Result<()> {
         let start_time = Instant::now();
-        let (content, signature) = serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
+        let (content, signature) =
+            serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
         println!(" 交易编码base64: {:?}", start_time.elapsed());
 
         let request_body = serde_json::to_string(&json!({
@@ -69,7 +90,9 @@ impl NextBlockClient {
             "frontRunningProtection": false
         }))?;
 
-        let response_text = self.http_client.post(&self.endpoint)
+        let response_text = self
+            .http_client
+            .post(&self.endpoint)
             .body(request_body)
             .header("Authorization", &self.auth_token)
             .header("Content-Type", "application/json")
@@ -97,7 +120,11 @@ impl NextBlockClient {
         Ok(())
     }
 
-    pub async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {
+    pub async fn send_transactions(
+        &self,
+        trade_type: TradeType,
+        transactions: &Vec<VersionedTransaction>,
+    ) -> Result<()> {
         for transaction in transactions {
             self.send_transaction(trade_type, transaction).await?;
         }

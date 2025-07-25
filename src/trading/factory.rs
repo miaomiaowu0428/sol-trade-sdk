@@ -73,7 +73,12 @@ impl TradeFactory {
 
     /// 获取所有支持的协议
     pub fn supported_dex_types() -> Vec<DexType> {
-        vec![DexType::PumpFun, DexType::PumpSwap, DexType::Bonk, DexType::RaydiumCpmm]
+        vec![
+            DexType::PumpFun,
+            DexType::PumpSwap,
+            DexType::Bonk,
+            DexType::RaydiumCpmm,
+        ]
     }
 
     /// 检查协议是否支持

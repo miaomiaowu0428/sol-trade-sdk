@@ -1,20 +1,21 @@
-
-use crate::swqos::common::{poll_transaction_confirmation, serialize_transaction_and_encode, FormatBase64VersionedTransaction};
+use crate::swqos::common::{
+    poll_transaction_confirmation, serialize_transaction_and_encode,
+    FormatBase64VersionedTransaction,
+};
 use rand::seq::IndexedRandom;
 use reqwest::Client;
 use serde_json::json;
 use std::{sync::Arc, time::Instant};
 
-use std::time::Duration;
 use solana_transaction_status::UiTransactionEncoding;
+use std::time::Duration;
 
+use crate::swqos::SwqosClientTrait;
+use crate::swqos::{SwqosType, TradeType};
 use anyhow::Result;
 use solana_sdk::transaction::VersionedTransaction;
-use crate::swqos::{SwqosType, TradeType};
-use crate::swqos::SwqosClientTrait;
 
 use crate::{common::SolanaRpcClient, constants::swqos::JITO_TIP_ACCOUNTS};
-
 
 pub struct JitoClient {
     pub endpoint: String,
@@ -25,11 +26,19 @@ pub struct JitoClient {
 
 #[async_trait::async_trait]
 impl SwqosClientTrait for JitoClient {
-    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    async fn send_transaction(
+        &self,
+        trade_type: TradeType,
+        transaction: &VersionedTransaction,
+    ) -> Result<()> {
         self.send_transaction(trade_type, transaction).await
     }
 
-    async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {
+    async fn send_transactions(
+        &self,
+        trade_type: TradeType,
+        transactions: &Vec<VersionedTransaction>,
+    ) -> Result<()> {
         self.send_transactions(trade_type, transactions).await
     }
 
@@ -58,17 +67,27 @@ impl JitoClient {
             .connect_timeout(Duration::from_secs(5))
             .build()
             .unwrap();
-        Self { rpc_client: Arc::new(rpc_client), endpoint, auth_token, http_client }
+        Self {
+            rpc_client: Arc::new(rpc_client),
+            endpoint,
+            auth_token,
+            http_client,
+        }
     }
 
-    pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    pub async fn send_transaction(
+        &self,
+        trade_type: TradeType,
+        transaction: &VersionedTransaction,
+    ) -> Result<()> {
         let start_time = Instant::now();
-        let (content, signature) = serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
+        let (content, signature) =
+            serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
         println!(" 交易编码base64: {:?}", start_time.elapsed());
 
         let request_body = serde_json::to_string(&json!({
             "id": 1,
-            "jsonrpc": "2.0", 
+            "jsonrpc": "2.0",
             "method": "sendTransaction",
             "params": [
                 content,
@@ -79,7 +98,9 @@ impl JitoClient {
         }))?;
 
         let endpoint = format!("{}/api/v1/transactions", self.endpoint);
-        let response_text = self.http_client.post(&endpoint)
+        let response_text = self
+            .http_client
+            .post(&endpoint)
             .body(request_body)
             .header("Content-Type", "application/json")
             .send()
@@ -106,9 +127,16 @@ impl JitoClient {
         Ok(())
     }
 
-    pub async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {
+    pub async fn send_transactions(
+        &self,
+        trade_type: TradeType,
+        transactions: &Vec<VersionedTransaction>,
+    ) -> Result<()> {
         let start_time = Instant::now();
-        let txs_base64 = transactions.iter().map(|tx| tx.to_base64_string()).collect::<Vec<String>>();
+        let txs_base64 = transactions
+            .iter()
+            .map(|tx| tx.to_base64_string())
+            .collect::<Vec<String>>();
         let body = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "sendBundle",
@@ -120,7 +148,9 @@ impl JitoClient {
         });
 
         let endpoint = format!("{}/api/v1/bundles", self.endpoint);
-        let response_text = self.http_client.post(&endpoint)
+        let response_text = self
+            .http_client
+            .post(&endpoint)
             .body(body.to_string())
             .header("Content-Type", "application/json")
             .send()

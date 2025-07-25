@@ -1,9 +1,9 @@
 pub mod bonk;
 pub mod pumpfun;
 pub mod pumpswap;
+pub mod raydium_cpmm;
 pub mod swqos;
 pub mod trade;
-pub mod raydium_cpmm;
 
 pub mod trade_platform {
     pub const PUMPFUN: &'static str = "pumpfun";

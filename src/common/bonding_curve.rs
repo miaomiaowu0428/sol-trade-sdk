@@ -25,11 +25,17 @@
 //! - `get_final_market_cap_sol`: Calculates the final market cap in SOL after all tokens are sold
 //! - `get_buy_out_price`: Calculates the price to buy out all remaining tokens
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{constants::pumpfun::global_constants::{INITIAL_REAL_TOKEN_RESERVES, INITIAL_VIRTUAL_SOL_RESERVES, INITIAL_VIRTUAL_TOKEN_RESERVES, TOKEN_TOTAL_SUPPLY}, trading::pumpfun::common::{get_bonding_curve_pda, get_creator_vault_pda}};
 use crate::solana_streamer_sdk::streaming::event_parser::protocols::pumpfun::PumpFunTradeEvent;
+use crate::{
+    constants::pumpfun::global_constants::{
+        INITIAL_REAL_TOKEN_RESERVES, INITIAL_VIRTUAL_SOL_RESERVES, INITIAL_VIRTUAL_TOKEN_RESERVES,
+        TOKEN_TOTAL_SUPPLY,
+    },
+    trading::pumpfun::common::{get_bonding_curve_pda, get_creator_vault_pda},
+};
 
 /// Represents the global configuration account for token pricing and fees
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,7 +61,12 @@ pub struct BondingCurveAccount {
 }
 
 impl BondingCurveAccount {
-    pub fn from_dev_trade(mint: &Pubkey, dev_token_amount: u64, dev_sol_amount: u64, creator: Pubkey) -> Self {
+    pub fn from_dev_trade(
+        mint: &Pubkey,
+        dev_token_amount: u64,
+        dev_sol_amount: u64,
+        creator: Pubkey,
+    ) -> Self {
         Self {
             discriminator: 0,
             account: get_bonding_curve_pda(mint).unwrap(),

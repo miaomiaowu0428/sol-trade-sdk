@@ -6,12 +6,12 @@ use tokio::task::JoinHandle;
 
 use crate::{
     common::PriorityFee,
-    swqos::{SwqosType, SwqosClient, TradeType},
-    trading::core::timer::TradeTimer,
+    swqos::{SwqosClient, SwqosType, TradeType},
     trading::common::{
         build_rpc_transaction, build_sell_tip_transaction_with_priority_fee,
         build_sell_transaction, build_tip_transaction_with_priority_fee,
     },
+    trading::core::timer::TradeTimer,
 };
 
 /// 并行执行交易的通用函数
@@ -38,7 +38,8 @@ pub async fn parallel_execute_with_tips(
         let handle = tokio::spawn(async move {
             core_affinity::set_for_current(core_id);
 
-            let mut timer = TradeTimer::new(format!("构建交易指令: {:?}", swqos_client.get_swqos_type()));
+            let mut timer =
+                TradeTimer::new(format!("构建交易指令: {:?}", swqos_client.get_swqos_type()));
 
             let transaction = if matches!(trade_type, TradeType::Sell)
                 && swqos_client.get_swqos_type() == SwqosType::Default

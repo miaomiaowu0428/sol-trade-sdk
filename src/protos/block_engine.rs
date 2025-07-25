@@ -90,10 +90,10 @@ pub mod block_engine_validator_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// / Validators can connect to Block Engines to receive packets and bundles.
     #[derive(Debug, Clone)]
     pub struct BlockEngineValidatorClient<T> {
@@ -138,9 +138,8 @@ pub mod block_engine_validator_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             BlockEngineValidatorClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -183,26 +182,18 @@ pub mod block_engine_validator_client {
             tonic::Response<tonic::codec::Streaming<super::SubscribePacketsResponse>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/block_engine.BlockEngineValidator/SubscribePackets",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "block_engine.BlockEngineValidator",
-                        "SubscribePackets",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "block_engine.BlockEngineValidator",
+                "SubscribePackets",
+            ));
             self.inner.server_streaming(req, path, codec).await
         }
         /// / Validators can subscribe to the block engine to receive a stream of simulated and profitable bundles
@@ -213,26 +204,18 @@ pub mod block_engine_validator_client {
             tonic::Response<tonic::codec::Streaming<super::SubscribeBundlesResponse>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/block_engine.BlockEngineValidator/SubscribeBundles",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "block_engine.BlockEngineValidator",
-                        "SubscribeBundles",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "block_engine.BlockEngineValidator",
+                "SubscribeBundles",
+            ));
             self.inner.server_streaming(req, path, codec).await
         }
         /// Block builders can optionally collect fees. This returns fee information if a block builder wants to
@@ -240,30 +223,20 @@ pub mod block_engine_validator_client {
         pub async fn get_block_builder_fee_info(
             &mut self,
             request: impl tonic::IntoRequest<super::BlockBuilderFeeInfoRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::BlockBuilderFeeInfoResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::BlockBuilderFeeInfoResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/block_engine.BlockEngineValidator/GetBlockBuilderFeeInfo",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "block_engine.BlockEngineValidator",
-                        "GetBlockBuilderFeeInfo",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "block_engine.BlockEngineValidator",
+                "GetBlockBuilderFeeInfo",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -275,10 +248,10 @@ pub mod block_engine_relayer_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     /// / Relayers can forward packets to Block Engines.
     /// / Block Engines provide an AccountsOfInterest field to only send transactions that are of interest.
     #[derive(Debug, Clone)]
@@ -324,9 +297,8 @@ pub mod block_engine_relayer_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             BlockEngineRelayerClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -371,26 +343,18 @@ pub mod block_engine_relayer_client {
             tonic::Response<tonic::codec::Streaming<super::AccountsOfInterestUpdate>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/block_engine.BlockEngineRelayer/SubscribeAccountsOfInterest",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "block_engine.BlockEngineRelayer",
-                        "SubscribeAccountsOfInterest",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "block_engine.BlockEngineRelayer",
+                "SubscribeAccountsOfInterest",
+            ));
             self.inner.server_streaming(req, path, codec).await
         }
         pub async fn subscribe_programs_of_interest(
@@ -400,26 +364,18 @@ pub mod block_engine_relayer_client {
             tonic::Response<tonic::codec::Streaming<super::ProgramsOfInterestUpdate>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/block_engine.BlockEngineRelayer/SubscribeProgramsOfInterest",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "block_engine.BlockEngineRelayer",
-                        "SubscribeProgramsOfInterest",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "block_engine.BlockEngineRelayer",
+                "SubscribeProgramsOfInterest",
+            ));
             self.inner.server_streaming(req, path, codec).await
         }
         /// Validators can subscribe to packets from the relayer and receive a multiplexed signal that contains a mixture
@@ -431,31 +387,21 @@ pub mod block_engine_relayer_client {
             &mut self,
             request: impl tonic::IntoStreamingRequest<Message = super::PacketBatchUpdate>,
         ) -> std::result::Result<
-            tonic::Response<
-                tonic::codec::Streaming<super::StartExpiringPacketStreamResponse>,
-            >,
+            tonic::Response<tonic::codec::Streaming<super::StartExpiringPacketStreamResponse>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/block_engine.BlockEngineRelayer/StartExpiringPacketStream",
             );
             let mut req = request.into_streaming_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "block_engine.BlockEngineRelayer",
-                        "StartExpiringPacketStream",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "block_engine.BlockEngineRelayer",
+                "StartExpiringPacketStream",
+            ));
             self.inner.streaming(req, path, codec).await
         }
     }

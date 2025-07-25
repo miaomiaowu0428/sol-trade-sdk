@@ -74,11 +74,13 @@ impl AddressLookupTableCache {
     pub fn get_table(&self, lookup_table_address: &Pubkey) -> Option<AddressLookupTableInfo> {
         let tables = self.tables.lock().unwrap();
 
-        tables.get(lookup_table_address).map(|info| AddressLookupTableInfo {
-            lookup_table_address: info.lookup_table_address,
-            address_lookup_table: info.address_lookup_table.clone(),
-            lock: info.lock,
-        })
+        tables
+            .get(lookup_table_address)
+            .map(|info| AddressLookupTableInfo {
+                lookup_table_address: info.lookup_table_address,
+                address_lookup_table: info.address_lookup_table.clone(),
+                lock: info.lock,
+            })
     }
 
     /// 获取所有表地址
@@ -148,7 +150,9 @@ impl AddressLookupTableCache {
 }
 
 /// 获取地址表账户
-pub async fn get_address_lookup_table_account(lookup_table_address: &Pubkey) -> AddressLookupTableAccount {
+pub async fn get_address_lookup_table_account(
+    lookup_table_address: &Pubkey,
+) -> AddressLookupTableAccount {
     let cache = AddressLookupTableCache::get_instance();
     return cache.get_table_content(&lookup_table_address);
 }

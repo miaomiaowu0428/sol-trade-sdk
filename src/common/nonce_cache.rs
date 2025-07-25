@@ -1,7 +1,7 @@
+use solana_hash::Hash;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, OnceLock};
-use solana_hash::Hash;
 
 /// NonceInfo 结构体，存储 nonce 相关信息
 pub struct NonceInfo {
@@ -46,20 +46,13 @@ impl NonceCache {
 
     /// 初始化 nonce 信息
     pub fn init(&self, nonce_account_str: Option<String>) {
-        let nonce_account = nonce_account_str
-            .and_then(|s| Pubkey::from_str(&s).ok());
+        let nonce_account = nonce_account_str.and_then(|s| Pubkey::from_str(&s).ok());
 
-        self.update_nonce_info_partial(
-            nonce_account,
-            None,
-            None,
-            Some(false),
-            Some(false),
-        );
+        self.update_nonce_info_partial(nonce_account, None, None, Some(false), Some(false));
     }
 
-     /// 获取 NonceInfo 的副本
-     pub fn get_nonce_info(&self) -> NonceInfo {
+    /// 获取 NonceInfo 的副本
+    pub fn get_nonce_info(&self) -> NonceInfo {
         let nonce_info = self.nonce_info.lock().unwrap();
         NonceInfo {
             nonce_account: nonce_info.nonce_account,
@@ -85,19 +78,19 @@ impl NonceCache {
         if let Some(account) = nonce_account {
             current.nonce_account = Some(account);
         }
-        
+
         if let Some(nonce) = current_nonce {
             current.current_nonce = nonce;
         }
-        
+
         if let Some(time) = next_buy_time {
             current.next_buy_time = time;
         }
-        
+
         if let Some(l) = lock {
             current.lock = l;
         }
-        
+
         if let Some(u) = used {
             current.used = u;
         }
@@ -105,34 +98,16 @@ impl NonceCache {
 
     /// 标记 nonce 已使用
     pub fn mark_used(&self) {
-        self.update_nonce_info_partial(
-            None,
-            None,
-            None,
-            None,
-            Some(true),
-        );
+        self.update_nonce_info_partial(None, None, None, None, Some(true));
     }
 
     /// 锁定 nonce
     pub fn lock(&self) {
-        self.update_nonce_info_partial(
-            None,
-            None,
-            None,
-            Some(true),
-            None,
-        );
+        self.update_nonce_info_partial(None, None, None, Some(true), None);
     }
 
     /// 解锁 nonce
     pub fn unlock(&self) {
-        self.update_nonce_info_partial(
-            None,
-            None,
-            None,
-            Some(false),
-            None,
-        );
+        self.update_nonce_info_partial(None, None, None, Some(false), None);
     }
 }

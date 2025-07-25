@@ -1,6 +1,6 @@
+use super::params::{BuyParams, BuyWithTipParams, SellParams, SellWithTipParams};
 use anyhow::Result;
 use solana_sdk::instruction::Instruction;
-use super::params::{BuyParams, BuyWithTipParams, SellParams, SellWithTipParams};
 
 /// 交易执行器trait - 定义了所有交易协议都需要实现的核心方法
 #[async_trait::async_trait]

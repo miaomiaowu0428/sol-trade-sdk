@@ -70,7 +70,10 @@ pub fn proto_packet_to_packet(p: &ProtoPacket) -> Packet {
                 packet.meta_mut().flags.insert(PacketFlags::FORWARDED);
             }
             if flags.tracer_packet {
-                packet.meta_mut().flags.insert(PacketFlags::PERF_TRACK_PACKET);
+                packet
+                    .meta_mut()
+                    .flags
+                    .insert(PacketFlags::PERF_TRACK_PACKET);
             }
             if flags.repair {
                 packet.meta_mut().flags.insert(PacketFlags::REPAIR);

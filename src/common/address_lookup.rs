@@ -1,9 +1,9 @@
 use solana_program::{
     address_lookup_table::{
         instruction::{
-            create_lookup_table as create_lookup_table_instruction, 
-            extend_lookup_table as extend_lookup_table_instruction, 
-            freeze_lookup_table as freeze_lookup_table_instruction
+            create_lookup_table as create_lookup_table_instruction,
+            extend_lookup_table as extend_lookup_table_instruction,
+            freeze_lookup_table as freeze_lookup_table_instruction,
         },
         state::AddressLookupTable,
     },
@@ -11,8 +11,8 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use solana_sdk::{
-    message::{v0::Message as MessageV0, AddressLookupTableAccount, VersionedMessage}, 
-    signature::{Keypair, Signer}, 
+    message::{v0::Message as MessageV0, AddressLookupTableAccount, VersionedMessage},
+    signature::{Keypair, Signer},
     transaction::{Transaction, VersionedTransaction},
 };
 use std::{error::Error, sync::Arc};
@@ -27,11 +27,8 @@ pub async fn create_lookup_table_if_not_exists(
 ) -> Result<Pubkey, Box<dyn std::error::Error>> {
     // 1. 计算预期的查找表地址
     let recent_slot = client.get_slot().await?;
-    let (create_ix, lookup_table_address) = create_lookup_table_instruction(
-        authority.pubkey(), 
-        payer.pubkey(),
-        recent_slot
-    );
+    let (create_ix, lookup_table_address) =
+        create_lookup_table_instruction(authority.pubkey(), payer.pubkey(), recent_slot);
 
     // 2. 创建新表
     let blockhash = client.get_latest_blockhash().await?;
@@ -82,10 +79,7 @@ pub async fn freeze_lookup_table(
     authority: &Keypair,
     lookup_table_address: &Pubkey,
 ) -> Result<(), Box<dyn Error>> {
-    let freeze_ix = freeze_lookup_table_instruction(
-        *lookup_table_address,
-        authority.pubkey(),
-    );
+    let freeze_ix = freeze_lookup_table_instruction(*lookup_table_address, authority.pubkey());
 
     let blockhash = client.get_latest_blockhash().await?;
     let transaction = Transaction::new_signed_with_payer(
@@ -310,7 +304,7 @@ pub async fn create_pumpfun_lookup_table(
     client.send_and_confirm_transaction(&transaction).await?;
 
     Ok(lookup_table_address)
-}   
+}
 
 pub async fn add_pumpfun_address_to_lookup_table(
     client: Arc<SolanaRpcClient>,
@@ -319,13 +313,7 @@ pub async fn add_pumpfun_address_to_lookup_table(
     lookup_table_address: &Pubkey,
 ) -> Result<(), Box<dyn Error>> {
     let addresses = get_pumpfun_addresses(payer.pubkey(), vec![]);
-    extend_lookup_table(
-        client,
-        payer, 
-        authority, 
-        lookup_table_address, 
-        addresses
-    ).await?;
+    extend_lookup_table(client, payer, authority, lookup_table_address, addresses).await?;
 
     Ok(())
 }
@@ -337,13 +325,7 @@ pub async fn extend_pumpfun_address_to_lookup_table(
     lookup_table_address: &Pubkey,
     addresses: Vec<Pubkey>,
 ) -> Result<(), Box<dyn Error>> {
-    extend_lookup_table(
-        client,
-        payer, 
-        authority, 
-        lookup_table_address, 
-        addresses
-    ).await?;
+    extend_lookup_table(client, payer, authority, lookup_table_address, addresses).await?;
 
     Ok(())
 }
@@ -362,14 +344,17 @@ pub fn get_pumpfun_addresses(payer: Pubkey, include_addresses: Vec<Pubkey>) -> V
     ];
 
     addresses.extend(include_addresses);
-    
+
     addresses
 }
 
-pub fn get_pumpfun_filtered_addresses(payer: Pubkey, include_addresses: Vec<Pubkey>) -> Vec<Pubkey> {
+pub fn get_pumpfun_filtered_addresses(
+    payer: Pubkey,
+    include_addresses: Vec<Pubkey>,
+) -> Vec<Pubkey> {
     let mut addresses = vec![
         payer,
-        constants::pumpfun::accounts::PUMPFUN, 
+        constants::pumpfun::accounts::PUMPFUN,
         constants::pumpfun::accounts::SYSTEM_PROGRAM,
         constants::pumpfun::accounts::TOKEN_PROGRAM,
         constants::pumpfun::accounts::RENT,
@@ -388,6 +373,6 @@ pub fn get_pumpfun_filtered_addresses(payer: Pubkey, include_addresses: Vec<Pubk
     ];
 
     addresses.extend(include_addresses);
-    
+
     addresses
 }

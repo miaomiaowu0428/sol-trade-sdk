@@ -4,27 +4,24 @@ use std::{
 };
 
 use crate::protos::{
-    bundle::{
-        Bundle, BundleResult,
-    },
+    bundle::{Bundle, BundleResult},
     convert::proto_packet_from_versioned_tx,
     searcher::{
-        searcher_service_client::SearcherServiceClient, SendBundleRequest, SubscribeBundleResultsRequest,
+        searcher_service_client::SearcherServiceClient, SendBundleRequest,
+        SubscribeBundleResultsRequest,
     },
 };
-use solana_sdk::{
-    signature::Signature,
-    transaction::VersionedTransaction,
-};
+use solana_sdk::{signature::Signature, transaction::VersionedTransaction};
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tonic::{
-    transport::{self, Channel, Endpoint}, Status
+    transport::{self, Channel, Endpoint},
+    Status,
 };
 use yellowstone_grpc_client::ClientTlsConfig;
 
-use crate::swqos::common::poll_transaction_confirmation;
 use crate::common::SolanaRpcClient;
+use crate::swqos::common::poll_transaction_confirmation;
 use crate::swqos::TradeType;
 
 #[derive(Debug, Error)]
@@ -74,10 +71,7 @@ pub async fn create_grpc_channel(url: &str) -> BlockEngineConnectionResult<Chann
 pub async fn subscribe_bundle_results(
     searcher_client: Arc<Mutex<SearcherServiceClient<Channel>>>,
     request: impl tonic::IntoRequest<SubscribeBundleResultsRequest>,
-) -> std::result::Result<
-    tonic::Response<tonic::codec::Streaming<BundleResult>>,
-    tonic::Status,
-> {
+) -> std::result::Result<tonic::Response<tonic::codec::Streaming<BundleResult>>, tonic::Status> {
     let mut searcher = searcher_client.lock().await;
     searcher.subscribe_bundle_results(request).await
 }
@@ -99,7 +93,7 @@ pub async fn send_bundle_with_confirmation(
             Err(_) => continue,
         }
     }
-    
+
     println!(" Jito{}确认: {:?}", trade_type, start_time.elapsed());
 
     Ok(signatures)

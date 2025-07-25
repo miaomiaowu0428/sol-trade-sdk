@@ -15,23 +15,23 @@ impl TradeTimer {
             stage: stage.into(),
         }
     }
-    
+
     /// 记录当前阶段耗时并开始新阶段
     pub fn stage(&mut self, new_stage: impl Into<String>) {
         let elapsed = self.start_time.elapsed();
         println!(" {} 耗时: {:?}", self.stage, elapsed);
-        
+
         self.start_time = Instant::now();
         self.stage = new_stage.into();
     }
-    
+
     /// 完成计时并输出最终耗时
     pub fn finish(mut self) {
         let elapsed = self.start_time.elapsed();
         println!(" {} 耗时: {:?}", self.stage, elapsed);
         self.stage.clear(); // 清空stage，避免Drop时重复打印
     }
-    
+
     /// 获取当前阶段的耗时（不重置计时器）
     pub fn elapsed(&self) -> std::time::Duration {
         self.start_time.elapsed()
@@ -45,4 +45,4 @@ impl Drop for TradeTimer {
             println!(" {} 耗时: {:?}", self.stage, elapsed);
         }
     }
-} 
+}

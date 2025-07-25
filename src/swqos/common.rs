@@ -1,18 +1,18 @@
+use crate::common::types::SolanaRpcClient;
+use anyhow::Result;
+use base64::engine::general_purpose::{self, STANDARD};
+use base64::Engine;
 use bincode::serialize;
+use reqwest::Client;
 use serde_json::json;
 use solana_client::rpc_client::SerializableTransaction;
 use solana_sdk::signature::Signature;
 use solana_sdk::transaction::Transaction;
+use solana_sdk::transaction::VersionedTransaction;
 use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use crate::common::types::SolanaRpcClient;
-use anyhow::Result;
-use base64::Engine;
-use base64::engine::general_purpose::{self, STANDARD};
-use reqwest::Client;
-use solana_sdk::transaction::VersionedTransaction;
 
 pub trait FormatBase64VersionedTransaction {
     fn to_base64_string(&self) -> String;
@@ -25,14 +25,20 @@ impl FormatBase64VersionedTransaction for VersionedTransaction {
     }
 }
 
-pub async fn poll_transaction_confirmation(rpc: &SolanaRpcClient, txt_sig: Signature) -> Result<Signature> {
+pub async fn poll_transaction_confirmation(
+    rpc: &SolanaRpcClient,
+    txt_sig: Signature,
+) -> Result<Signature> {
     let timeout: Duration = Duration::from_secs(5);
     let interval: Duration = Duration::from_millis(1000);
     let start: Instant = Instant::now();
 
     loop {
         if start.elapsed() >= timeout {
-            return Err(anyhow::anyhow!("Transaction {}'s confirmation timed out", txt_sig));
+            return Err(anyhow::anyhow!(
+                "Transaction {}'s confirmation timed out",
+                txt_sig
+            ));
         }
 
         let status = rpc.get_signature_statuses(&[txt_sig]).await?;
@@ -40,8 +46,10 @@ pub async fn poll_transaction_confirmation(rpc: &SolanaRpcClient, txt_sig: Signa
         match status.value[0].clone() {
             Some(status) => {
                 if status.err.is_none()
-                    && (status.confirmation_status == Some(TransactionConfirmationStatus::Confirmed)
-                        || status.confirmation_status == Some(TransactionConfirmationStatus::Finalized))
+                    && (status.confirmation_status
+                        == Some(TransactionConfirmationStatus::Confirmed)
+                        || status.confirmation_status
+                            == Some(TransactionConfirmationStatus::Finalized))
                 {
                     return Ok(txt_sig);
                 }
@@ -56,11 +64,16 @@ pub async fn poll_transaction_confirmation(rpc: &SolanaRpcClient, txt_sig: Signa
     }
 }
 
-pub async fn send_nb_transaction(client: Client, endpoint: &str, auth_token: &str, transaction: &Transaction) -> Result<Signature, anyhow::Error> {
+pub async fn send_nb_transaction(
+    client: Client,
+    endpoint: &str,
+    auth_token: &str,
+    transaction: &Transaction,
+) -> Result<Signature, anyhow::Error> {
     // 序列化交易
-    let serialized = bincode::serialize(transaction)
-        .map_err(|e| anyhow::anyhow!("序列化交易失败: {}", e))?;
-    
+    let serialized =
+        bincode::serialize(transaction).map_err(|e| anyhow::anyhow!("序列化交易失败: {}", e))?;
+
     // Base64编码
     let encoded = STANDARD.encode(serialized);
 
@@ -81,18 +94,21 @@ pub async fn send_nb_transaction(client: Client, endpoint: &str, auth_token: &st
         .await
         .map_err(|e| anyhow::anyhow!("请求失败: {}", e))?;
 
-    let resp = response.json::<serde_json::Value>().await
+    let resp = response
+        .json::<serde_json::Value>()
+        .await
         .map_err(|e| anyhow::anyhow!("解析响应失败: {}", e))?;
 
     if let Some(reason) = resp["reason"].as_str() {
         return Err(anyhow::anyhow!(reason.to_string()));
     }
 
-    let signature = resp["signature"].as_str()
+    let signature = resp["signature"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("响应中缺少signature字段"))?;
 
-    let signature = Signature::from_str(signature)
-        .map_err(|e| anyhow::anyhow!("无效的签名: {}", e))?;
+    let signature =
+        Signature::from_str(signature).map_err(|e| anyhow::anyhow!("无效的签名: {}", e))?;
 
     Ok(signature)
 }
