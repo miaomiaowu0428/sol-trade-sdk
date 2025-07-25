@@ -433,7 +433,7 @@ async fn test_grpc() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     println!("开始监听事件，按 Ctrl+C 停止...");
-    grpc.subscribe_events(protocols, None, None, None, callback)
+    grpc.subscribe_events(protocols, None, None, None,None,None, callback)
         .await?;
 
     Ok(())
