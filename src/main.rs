@@ -1,5 +1,11 @@
 use std::{str::FromStr, sync::Arc};
 
+use sol_trade_sdk::{
+    common::{bonding_curve::BondingCurveAccount, AnyResult, PriorityFee, TradeConfig},
+    swqos::{SwqosConfig, SwqosRegion},
+    trading::{core::params::{BonkParams, PumpFunParams, PumpSwapParams, RaydiumCpmmParams}, factory::DexType, raydium_cpmm::common::{get_buy_token_amount, get_sell_sol_amount}},
+    SolanaTrade,
+};
 use sol_trade_sdk::solana_streamer_sdk::{
     match_event,
     streaming::{
@@ -18,17 +24,8 @@ use sol_trade_sdk::solana_streamer_sdk::{
         ShredStreamGrpc, YellowstoneGrpc,
     },
 };
-use sol_trade_sdk::{
-    common::{bonding_curve::BondingCurveAccount, AnyResult, PriorityFee, TradeConfig},
-    swqos::{SwqosConfig, SwqosRegion},
-    trading::{
-        core::params::{BonkParams, PumpFunParams, RaydiumCpmmParams},
-        factory::DexType,
-        raydium_cpmm::common::{get_buy_token_amount, get_sell_sol_amount},
-    },
-    SolanaTrade,
-};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair};
+use solana_streamer_sdk::streaming::event_parser::protocols::{bonk::parser::BONK_PROGRAM_ID, pumpfun::parser::PUMPFUN_PROGRAM_ID, pumpswap::parser::PUMPSWAP_PROGRAM_ID, raydium_clmm::parser::RAYDIUM_CLMM_PROGRAM_ID, raydium_cpmm::parser::RAYDIUM_CPMM_PROGRAM_ID};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +56,7 @@ async fn test_create_solana_trade_client() -> AnyResult<SolanaTrade> {
 
 fn create_swqos_configs(rpc_url: &str) -> Vec<SwqosConfig> {
     vec![
-        SwqosConfig::Jito(SwqosRegion::Frankfurt),
+        SwqosConfig::Jito("your api_token".to_string(), SwqosRegion::Frankfurt),
         SwqosConfig::NextBlock("your api_token".to_string(), SwqosRegion::Frankfurt),
         SwqosConfig::Bloxroute("your api_token".to_string(), SwqosRegion::Frankfurt),
         SwqosConfig::ZeroSlot("your api_token".to_string(), SwqosRegion::Frankfurt),
@@ -109,18 +106,17 @@ async fn test_pumpfun_copy_trade_with_grpc(trade_info: PumpFunTradeEvent) -> Any
     // Sell tokens
     println!("Selling tokens from PumpFun...");
     let amount_token = 0;
-    client
-        .sell(
-            DexType::PumpFun,
-            mint_pubkey,
-            Some(creator),
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.sell(
+        DexType::PumpFun,
+        mint_pubkey,
+        Some(creator),
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        None,
+    ).await?;
 
     Ok(())
 }
@@ -166,18 +162,17 @@ async fn test_pumpfun_sniper_trade_with_shreds(trade_info: PumpFunTradeEvent) ->
     // Sell tokens
     println!("Selling tokens from PumpFun...");
     let amount_token = 0;
-    client
-        .sell(
-            DexType::PumpFun,
-            mint_pubkey,
-            Some(creator),
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.sell(
+        DexType::PumpFun,
+        mint_pubkey,
+        Some(creator),
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        None,
+    ).await?;
 
     Ok(())
 }
@@ -191,37 +186,53 @@ async fn test_pumpswap() -> AnyResult<()> {
     let buy_sol_cost = 100_000;
     let slippage_basis_points = Some(100);
     let recent_blockhash = client.rpc.get_latest_blockhash().await?;
+    let pool_address = Pubkey::from_str("xxxxxxx")?;
+    let base_mint = Pubkey::from_str("2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv")?;
+    let quote_mint = Pubkey::from_str("So11111111111111111111111111111111111111112")?;
+    let pool_base_token_reserves = 0; // Input the correct value
+    let pool_quote_token_reserves = 0; // Input the correct value
 
     // Buy tokens
     println!("Buying tokens from PumpSwap...");
-    client
-        .buy(
-            DexType::PumpSwap,
-            mint_pubkey,
-            Some(creator),
-            buy_sol_cost,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.buy(
+        DexType::PumpSwap,
+        mint_pubkey,
+        Some(creator),
+        buy_sol_cost,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        Some(Box::new(PumpSwapParams {
+            pool: Some(pool_address),
+            base_mint: Some(base_mint),
+            quote_mint: Some(quote_mint),
+            pool_base_token_reserves: Some(pool_base_token_reserves),
+            pool_quote_token_reserves: Some(pool_quote_token_reserves),
+            auto_handle_wsol: true,
+        })),
+    ).await?;
 
     // Sell tokens
     println!("Selling tokens from PumpSwap...");
     let amount_token = 0;
-    client
-        .sell(
-            DexType::PumpSwap,
-            mint_pubkey,
-            Some(creator),
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.sell(
+        DexType::PumpSwap,
+        mint_pubkey,
+        Some(creator),
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        Some(Box::new(PumpSwapParams {
+            pool: Some(pool_address),
+            base_mint: Some(base_mint),
+            quote_mint: Some(quote_mint),
+            pool_base_token_reserves: Some(pool_base_token_reserves),
+            pool_quote_token_reserves: Some(pool_quote_token_reserves),
+            auto_handle_wsol: true,
+        })),
+    ).await?;
 
     Ok(())
 }
@@ -253,18 +264,17 @@ async fn test_bonk_copy_trade_with_grpc(trade_info: BonkTradeEvent) -> AnyResult
     // Sell tokens
     println!("Selling tokens from letsbonk.fun...");
     let amount_token = 0;
-    client
-        .sell(
-            DexType::Bonk,
-            mint_pubkey,
-            None,
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.sell(
+        DexType::Bonk,
+        mint_pubkey,
+        None,
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        None,
+    ).await?;
 
     Ok(())
 }
@@ -300,18 +310,17 @@ async fn test_bonk_sniper_trade_with_shreds(trade_info: BonkTradeEvent) -> AnyRe
     // Sell tokens
     println!("Selling tokens from letsbonk.fun...");
     let amount_token = 0;
-    client
-        .sell(
-            DexType::Bonk,
-            mint_pubkey,
-            None,
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.sell(
+        DexType::Bonk,
+        mint_pubkey,
+        None,
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        None,
+    ).await?;
 
     Ok(())
 }
@@ -343,18 +352,17 @@ async fn test_bonk() -> Result<(), Box<dyn std::error::Error>> {
     // Sell tokens
     println!("Selling tokens from letsbonk.fun...");
     let amount_token = 0;
-    client
-        .sell(
-            DexType::Bonk,
-            mint_pubkey,
-            None,
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            None,
-        )
-        .await?;
+    client.sell(
+        DexType::Bonk,
+        mint_pubkey,
+        None,
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        None,
+    ).await?;
 
     Ok(())
 }
@@ -394,24 +402,23 @@ async fn test_raydium_cpmm() -> Result<(), Box<dyn std::error::Error>> {
     println!("Selling tokens from Raydium Cpmm...");
     let amount_token = 0;
     let sell_sol_amount = get_sell_sol_amount(&client.rpc, &pool_state, amount_token).await?;
-    client
-        .sell(
-            DexType::RaydiumCpmm,
-            mint_pubkey,
-            None,
-            amount_token,
-            slippage_basis_points,
-            recent_blockhash,
-            None,
-            Some(Box::new(RaydiumCpmmParams {
-                pool_state: Some(pool_state),              // 如果不传，会自动计算
-                mint_token_program: Some(spl_token::ID),   // spl_token_2022::ID
-                mint_token_in_pool_state_index: Some(1), // mint_token 在 pool_state 中的索引,默认在索引1
-                minimum_amount_out: Some(sell_sol_amount), // 如果不传、默认为0
-                auto_handle_wsol: true,
-            })),
-        )
-        .await?;
+    client.sell(
+        DexType::RaydiumCpmm,
+        mint_pubkey,
+        None,
+        amount_token,
+        slippage_basis_points,
+        recent_blockhash,
+        None,
+        false,
+        Some(Box::new(RaydiumCpmmParams {
+            pool_state: Some(pool_state), // 如果不传，会自动计算
+            mint_token_program: Some(spl_token::ID), // spl_token_2022::ID
+            mint_token_in_pool_state_index: Some(1), // mint_token 在 pool_state 中的索引,默认在索引1
+            minimum_amount_out: Some(sell_sol_amount), // 如果不传、默认为0
+            auto_handle_wsol: true,
+        })),
+    ).await?;
 
     Ok(())
 }
@@ -425,16 +432,30 @@ async fn test_grpc() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let callback = create_event_callback();
-    let protocols = vec![
-        Protocol::PumpFun,
-        Protocol::PumpSwap,
-        Protocol::Bonk,
-        Protocol::RaydiumCpmm,
+    let protocols = vec![Protocol::PumpFun, Protocol::PumpSwap, Protocol::Bonk, Protocol::RaydiumCpmm];
+    // Filter accounts
+    let account_include = vec![
+        PUMPFUN_PROGRAM_ID.to_string(),      // Listen to pumpfun program ID
+        PUMPSWAP_PROGRAM_ID.to_string(),     // Listen to pumpswap program ID
+        BONK_PROGRAM_ID.to_string(),         // Listen to bonk program ID
+        RAYDIUM_CPMM_PROGRAM_ID.to_string(), // Listen to raydium_cpmm program ID
+        RAYDIUM_CLMM_PROGRAM_ID.to_string(), // Listen to raydium_clmm program ID
+        "xxxxxxxx".to_string(),              // Listen to xxxxx account
     ];
+    let account_exclude = vec![];
+    let account_required = vec![];
 
     println!("开始监听事件，按 Ctrl+C 停止...");
-    grpc.subscribe_events(protocols, None, None, None,None,None, callback)
-        .await?;
+    grpc.subscribe_events_v2(
+        protocols,
+        None,
+        account_include,
+        account_exclude,
+        account_required,
+        None,
+        callback,
+    )
+    .await?;
 
     Ok(())
 }

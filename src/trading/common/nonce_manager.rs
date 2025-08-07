@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use solana_hash::Hash;
-use solana_sdk::{
-    instruction::Instruction, signature::Keypair, signer::Signer, system_instruction,
-};
+use solana_sdk::{instruction::Instruction, signature::Keypair, signer::Signer};
+use solana_system_interface::instruction::advance_nonce_account;
 
 use crate::common::nonce_cache::NonceCache;
 
@@ -37,8 +36,7 @@ pub fn add_nonce_instruction(
         // nonce_cache.lock();
 
         // 创建Solana系统nonce推进指令 - 使用系统程序ID
-        let nonce_advance_ix =
-            system_instruction::advance_nonce_account(&nonce_pubkey, &payer.pubkey());
+        let nonce_advance_ix = advance_nonce_account(&nonce_pubkey, &payer.pubkey());
 
         instructions.push(nonce_advance_ix);
     }

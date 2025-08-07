@@ -31,14 +31,14 @@ Add the dependency to your `Cargo.toml`:
 
 ```toml
 # Add to your Cargo.toml
-sol-trade-sdk = { path = "./sol-trade-sdk", version = "0.2.4" }
+sol-trade-sdk = { path = "./sol-trade-sdk", version = "0.2.15" }
 ```
 
 ### Use crates.io
 
 ```toml
 # Add to your Cargo.toml
-sol-trade-sdk = "0.2.4"
+sol-trade-sdk = "0.2.15"
 ```
 
 ## Usage Examples
@@ -127,8 +127,29 @@ async fn test_grpc() -> Result<(), Box<dyn std::error::Error>> {
     // Subscribe to events from multiple protocols
     println!("Starting to listen for events, press Ctrl+C to stop...");
     let protocols = vec![Protocol::PumpFun, Protocol::PumpSwap, Protocol::Bonk, Protocol::RaydiumCpmm];
-    grpc.subscribe_events(protocols, None, None, None, None, None, callback)
-        .await?;
+    
+    // Filter accounts
+    let account_include = vec![
+        PUMPFUN_PROGRAM_ID.to_string(),      // Listen to pumpfun program ID
+        PUMPSWAP_PROGRAM_ID.to_string(),     // Listen to pumpswap program ID
+        BONK_PROGRAM_ID.to_string(),         // Listen to bonk program ID
+        RAYDIUM_CPMM_PROGRAM_ID.to_string(), // Listen to raydium_cpmm program ID
+        RAYDIUM_CLMM_PROGRAM_ID.to_string(), // Listen to raydium_clmm program ID
+        "xxxxxxxx".to_string(),              // Listen to xxxxx account
+    ];
+    let account_exclude = vec![];
+    let account_required = vec![];
+
+    grpc.subscribe_events_v2(
+        protocols,
+        None,
+        account_include,
+        account_exclude,
+        account_required,
+        None,
+        callback,
+    )
+    .await?;
 
     Ok(())
 }
@@ -212,7 +233,7 @@ async fn test_create_solana_trade_client() -> AnyResult<SolanaTrade> {
 
     // Configure various SWQOS services
     let swqos_configs = vec![
-        SwqosConfig::Jito(SwqosRegion::Frankfurt),
+        SwqosConfig::Jito("your api_token".to_string(), SwqosRegion::Frankfurt),
         SwqosConfig::NextBlock("your api_token".to_string(), SwqosRegion::Frankfurt),
         SwqosConfig::Bloxroute("your api_token".to_string(), SwqosRegion::Frankfurt),
         SwqosConfig::ZeroSlot("your api_token".to_string(), SwqosRegion::Frankfurt),
@@ -339,6 +360,7 @@ async fn test_pumpfun_sell() -> AnyResult<()> {
         slippage_basis_points,
         recent_blockhash,
         None,
+        false,
         None,
     )
     .await?;
@@ -348,37 +370,47 @@ async fn test_pumpfun_sell() -> AnyResult<()> {
 ### 4. PumpSwap Trading Operations
 
 ```rust
+use sol_trade_sdk::trading::core::params::PumpSwapParams;
+
 async fn test_pumpswap() -> AnyResult<()> {
     println!("Testing PumpSwap trading...");
 
-    let trade_client = test_create_solana_trade_client().await?;
-
-    let mint_pubkey = Pubkey::from_str("xxxxxxx")?; 
-    let creator = Pubkey::from_str("xxxxxx")?; 
-    let buy_sol_amount = 100_000; 
+    let client = test_create_solana_trade_client().await?;
+    let creator = Pubkey::from_str("11111111111111111111111111111111")?;
+    let mint_pubkey = Pubkey::from_str("2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv")?;
+    let buy_sol_cost = 100_000;
     let slippage_basis_points = Some(100);
-    let recent_blockhash = trade_client.rpc.get_latest_blockhash().await?;
+    let recent_blockhash = client.rpc.get_latest_blockhash().await?;
+    let pool_address = Pubkey::from_str("xxxxxxx")?;
+    let base_mint = Pubkey::from_str("2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv")?;
+    let quote_mint = Pubkey::from_str("So11111111111111111111111111111111111111112")?;
+    let pool_base_token_reserves = 0; // Input the correct value
+    let pool_quote_token_reserves = 0; // Input the correct value
 
+    // Buy tokens
     println!("Buying tokens from PumpSwap...");
-    // buy
-    trade_client.buy(
+    client.buy(
         DexType::PumpSwap,
         mint_pubkey,
         Some(creator),
-        buy_sol_amount,
+        buy_sol_cost,
         slippage_basis_points,
         recent_blockhash,
         None,
-        None,
-    )
-    .await?;
-    
-    
-    // sell
-    println!("Selling tokens from PumpSwap...");
+        Some(Box::new(PumpSwapParams {
+            pool: Some(pool_address),
+            base_mint: Some(base_mint),
+            quote_mint: Some(quote_mint),
+            pool_base_token_reserves: Some(pool_base_token_reserves),
+            pool_quote_token_reserves: Some(pool_quote_token_reserves),
+            auto_handle_wsol: true,
+        })),
+    ).await?;
 
-    let amount_token = 100_000; 
-    trade_client.sell(
+    // Sell tokens
+    println!("Selling tokens from PumpSwap...");
+    let amount_token = 0;
+    client.sell(
         DexType::PumpSwap,
         mint_pubkey,
         Some(creator),
@@ -386,9 +418,16 @@ async fn test_pumpswap() -> AnyResult<()> {
         slippage_basis_points,
         recent_blockhash,
         None,
-        None,
-    )
-    .await?;
+        false,
+        Some(Box::new(PumpSwapParams {
+            pool: Some(pool_address),
+            base_mint: Some(base_mint),
+            quote_mint: Some(quote_mint),
+            pool_base_token_reserves: Some(pool_base_token_reserves),
+            pool_quote_token_reserves: Some(pool_quote_token_reserves),
+            auto_handle_wsol: true,
+        })),
+    ).await?;
 
     Ok(())
 }
@@ -451,6 +490,7 @@ async fn test_raydium_cpmm() -> Result<(), Box<dyn std::error::Error>> {
         slippage_basis_points,
         recent_blockhash,
         None,
+        false,
         Some(Box::new(RaydiumCpmmParams {
             pool_state: Some(pool_state), // If not provided, will auto-calculate
             mint_token_program: Some(spl_token::ID), // Support spl_token or spl_token_2022::ID
@@ -506,6 +546,7 @@ async fn test_bonk_sniper_trade_with_shreds(trade_info: BonkTradeEvent) -> AnyRe
         slippage_basis_points,
         recent_blockhash,
         None,
+        false,
         None,
     ).await?;
 
@@ -546,6 +587,7 @@ async fn test_bonk_copy_trade_with_grpc(trade_info: BonkTradeEvent) -> AnyResult
         slippage_basis_points,
         recent_blockhash,
         None,
+        false,
         None,
     ).await?;
 
@@ -588,6 +630,7 @@ async fn test_bonk() -> Result<(), Box<dyn std::error::Error>> {
         slippage_basis_points,
         recent_blockhash,
         None,
+        false,
         None,
     )
     .await?;

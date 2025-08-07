@@ -92,7 +92,7 @@ pub enum SwqosRegion {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SwqosConfig {
     Default(String),
-    Jito(SwqosRegion),
+    Jito(String, SwqosRegion),
     NextBlock(String, SwqosRegion),
     Bloxroute(String, SwqosRegion),
     Temporal(String, SwqosRegion),
@@ -117,9 +117,13 @@ impl SwqosConfig {
         swqos_config: SwqosConfig,
     ) -> Arc<SwqosClient> {
         match swqos_config {
-            SwqosConfig::Jito(region) => {
+            SwqosConfig::Jito(auth_token, region) => {
                 let endpoint = SwqosConfig::get_endpoint(SwqosType::Jito, region);
-                let jito_client = JitoClient::new(rpc_url.clone(), endpoint, "".to_string());
+                let jito_client = JitoClient::new(
+                    rpc_url.clone(),
+                    endpoint,
+                    auth_token
+                );
                 Arc::new(jito_client)
             }
             SwqosConfig::NextBlock(auth_token, region) => {
