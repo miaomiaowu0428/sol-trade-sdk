@@ -1,4 +1,11 @@
-use crate::solana_streamer_sdk::streaming::event_parser::protocols::pumpfun::PumpFunTradeEvent;
+use anyhow::anyhow;
+use solana_streamer_sdk::streaming::event_parser::protocols::pumpfun::PumpFunTradeEvent;
+use tokio::sync::RwLock;
+use std::{collections::HashMap, sync::Arc};
+use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey
+};
+use crate::trading::pumpfun::bonding_curve::PumpfunBondingCurveAccount;
 use crate::{
     common::{
         bonding_curve::BondingCurveAccount, global::GlobalAccount, PriorityFee, SolanaRpcClient,
@@ -10,13 +17,6 @@ use crate::{
     },
     trading::common::calculate_with_slippage_buy,
 };
-use anyhow::anyhow;
-use pumpfun_program::accounts::BondingCurveAccount as PumpfunBondingCurveAccount;
-use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
-};
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
 
 lazy_static::lazy_static! {
     static ref ACCOUNT_CACHE: RwLock<HashMap<Pubkey, Arc<GlobalAccount>>> = RwLock::new(HashMap::new());
