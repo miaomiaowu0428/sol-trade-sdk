@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use solana_sdk::{instruction::Instruction, signer::Signer};
 use solana_system_interface::instruction::transfer;
 use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
-use spl_token::instruction::close_account;
 
 use crate::{
     constants::{
@@ -41,7 +40,7 @@ impl InstructionBuilder for BonkInstructionBuilder {
 
 impl BonkInstructionBuilder {
     /// Build buy instructions with provided account information
-    async fn build_buy_instructions_with_accounts(
+    pub async fn build_buy_instructions_with_accounts(
         &self,
         params: &BuyParams,
     ) -> Result<Vec<Instruction>> {
@@ -86,31 +85,31 @@ impl BonkInstructionBuilder {
 
         let mut instructions = vec![];
 
-        if protocol_params.auto_handle_wsol {
-            // Handle wSOL
-            instructions.push(
-                // Create wSOL ATA account if it doesn't exist
-                create_associated_token_account_idempotent(
-                    &params.payer.pubkey(),
-                    &params.payer.pubkey(),
-                    &accounts::WSOL_TOKEN_ACCOUNT,
-                    &accounts::TOKEN_PROGRAM,
-                ),
-            );
-            instructions.push(
-                // Transfer SOL to wSOL ATA account
-                transfer(&params.payer.pubkey(), &user_quote_token_account, amount_in),
-            );
+        // if protocol_params.auto_handle_wsol {
+        //     // Handle wSOL
+        //     instructions.push(
+        //         // Create wSOL ATA account if it doesn't exist
+        //         create_associated_token_account_idempotent(
+        //             &params.payer.pubkey(),
+        //             &params.payer.pubkey(),
+        //             &accounts::WSOL_TOKEN_ACCOUNT,
+        //             &accounts::TOKEN_PROGRAM,
+        //         ),
+        //     );
+        //     instructions.push(
+        //         // Transfer SOL to wSOL ATA account
+        //         transfer(&params.payer.pubkey(), &user_quote_token_account, amount_in),
+        //     );
 
-            // Sync wSOL balance
-            instructions.push(
-                spl_token::instruction::sync_native(
-                    &accounts::TOKEN_PROGRAM,
-                    &user_quote_token_account,
-                )
-                .unwrap(),
-            );
-        }
+        //     // Sync wSOL balance
+        //     instructions.push(
+        //         spl_token::instruction::sync_native(
+        //             &accounts::TOKEN_PROGRAM,
+        //             &user_quote_token_account,
+        //         )
+        //         .unwrap(),
+        //     );
+        // }
 
         // Create user's base token account
         instructions.push(create_associated_token_account_idempotent(
@@ -150,25 +149,25 @@ impl BonkInstructionBuilder {
 
         instructions.push(Instruction { program_id: accounts::BONK, accounts, data });
 
-        if protocol_params.auto_handle_wsol {
-            // Close wSOL ATA account, reclaim rent
-            instructions.push(
-                spl_token::instruction::close_account(
-                    &accounts::TOKEN_PROGRAM,
-                    &user_quote_token_account,
-                    &params.payer.pubkey(),
-                    &params.payer.pubkey(),
-                    &[],
-                )
-                .unwrap(),
-            );
-        }
+        // if protocol_params.auto_handle_wsol {
+        //     // Close wSOL ATA account, reclaim rent
+        //     instructions.push(
+        //         spl_token::instruction::close_account(
+        //             &accounts::TOKEN_PROGRAM,
+        //             &user_quote_token_account,
+        //             &params.payer.pubkey(),
+        //             &params.payer.pubkey(),
+        //             &[],
+        //         )
+        //         .unwrap(),
+        //     );
+        // }
 
         Ok(instructions)
     }
 
     /// Build sell instructions with provided account information
-    async fn build_sell_instructions_with_accounts(
+    pub async fn build_sell_instructions_with_accounts(
         &self,
         params: &SellParams,
     ) -> Result<Vec<Instruction>> {
@@ -234,15 +233,15 @@ impl BonkInstructionBuilder {
         let mut instructions = vec![];
 
         // Handle wSOL
-        instructions.push(
-            // Create wSOL ATA account if it doesn't exist
-            create_associated_token_account_idempotent(
-                &params.payer.pubkey(),
-                &params.payer.pubkey(),
-                &accounts::WSOL_TOKEN_ACCOUNT,
-                &accounts::TOKEN_PROGRAM,
-            ),
-        );
+        // instructions.push(
+        //     // Create wSOL ATA account if it doesn't exist
+        //     create_associated_token_account_idempotent(
+        //         &params.payer.pubkey(),
+        //         &params.payer.pubkey(),
+        //         &accounts::WSOL_TOKEN_ACCOUNT,
+        //         &accounts::TOKEN_PROGRAM,
+        //     ),
+        // );
 
         // Create sell instruction
         let accounts = vec![
@@ -275,18 +274,18 @@ impl BonkInstructionBuilder {
 
         instructions.push(Instruction { program_id: accounts::BONK, accounts, data });
 
-        if protocol_params.auto_handle_wsol {
-            instructions.push(
-                close_account(
-                    &accounts::TOKEN_PROGRAM,
-                    &user_quote_token_account,
-                    &params.payer.pubkey(),
-                    &params.payer.pubkey(),
-                    &[&params.payer.pubkey()],
-                )
-                .unwrap(),
-            );
-        }
+        // if protocol_params.auto_handle_wsol {
+        //     instructions.push(
+        //         close_account(
+        //             &accounts::TOKEN_PROGRAM,
+        //             &user_quote_token_account,
+        //             &params.payer.pubkey(),
+        //             &params.payer.pubkey(),
+        //             &[&params.payer.pubkey()],
+        //         )
+        //         .unwrap(),
+        //     );
+        // }
 
         Ok(instructions)
     }
