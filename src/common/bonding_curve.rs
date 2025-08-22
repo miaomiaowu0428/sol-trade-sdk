@@ -38,7 +38,7 @@ use crate::{
 };
 
 /// Represents the global configuration account for token pricing and fees
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BondingCurveAccount {
     /// Unique identifier for the bonding curve
     pub discriminator: u64,

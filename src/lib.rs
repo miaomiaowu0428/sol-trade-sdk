@@ -11,10 +11,12 @@ use crate::swqos::SwqosConfig;
 use crate::trading::core::params::BonkParams;
 use crate::trading::core::params::PumpFunParams;
 use crate::trading::core::params::PumpSwapParams;
+use crate::trading::core::params::RaydiumAmmV4Params;
 use crate::trading::core::params::RaydiumCpmmParams;
 use crate::trading::core::traits::ProtocolParams;
 use crate::trading::factory::DexType;
 use crate::trading::BuyParams;
+use crate::trading::MiddlewareManager;
 use crate::trading::SellParams;
 use crate::trading::TradeFactory;
 use common::{PriorityFee, SolanaRpcClient, TradeConfig};
@@ -31,6 +33,7 @@ pub struct SolanaTrade {
     pub swqos_clients: Vec<Arc<SwqosClient>>,
     pub priority_fee: PriorityFee,
     pub trade_config: TradeConfig,
+    pub middleware_manager: Option<Arc<MiddlewareManager>>,
 }
 
 static INSTANCE: Mutex<Option<Arc<SolanaTrade>>> = Mutex::new(None);
@@ -43,6 +46,7 @@ impl Clone for SolanaTrade {
             swqos_clients: self.swqos_clients.clone(),
             priority_fee: self.priority_fee.clone(),
             trade_config: self.trade_config.clone(),
+            middleware_manager: self.middleware_manager.clone(),
         }
     }
 }
@@ -83,10 +87,7 @@ impl SolanaTrade {
             swqos_clients.push(swqos_client);
         }
 
-        let rpc = Arc::new(SolanaRpcClient::new_with_commitment(
-            rpc_url.clone(),
-            commitment,
-        ));
+        let rpc = Arc::new(SolanaRpcClient::new_with_commitment(rpc_url.clone(), commitment));
 
         let instance = Self {
             payer,
@@ -94,12 +95,18 @@ impl SolanaTrade {
             swqos_clients,
             priority_fee,
             trade_config: trade_config.clone(),
+            middleware_manager: None,
         };
 
         let mut current = INSTANCE.lock().unwrap();
         *current = Some(Arc::new(instance.clone()));
 
         instance
+    }
+
+    pub fn with_middleware_manager(mut self, middleware_manager: MiddlewareManager) -> Self {
+        self.middleware_manager = Some(Arc::new(middleware_manager));
+        self
     }
 
     /// Get the RPC client instance
@@ -128,6 +135,8 @@ impl SolanaTrade {
     /// * `recent_blockhash` - Recent blockhash for transaction validity
     /// * `custom_buy_tip_fee` - Optional custom tip fee for priority processing (in SOL)
     /// * `extension_params` - Optional protocol-specific parameters (uses defaults if None)
+    /// * `lookup_table_key` - Optional address lookup table key for transaction optimization
+    /// * `wait_transaction_confirmed` - Whether to wait for the transaction to be confirmed
     ///
     /// # Returns
     ///
@@ -162,6 +171,7 @@ impl SolanaTrade {
     ///     recent_blockhash,
     ///     None,
     ///     None,
+    ///     Some(lookup_table_pubkey),
     /// ).await?;
     /// ```
     pub async fn buy(
@@ -173,22 +183,16 @@ impl SolanaTrade {
         slippage_basis_points: Option<u64>,
         recent_blockhash: Hash,
         custom_buy_tip_fee: Option<f64>,
-        extension_params: Option<Box<dyn ProtocolParams>>,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        wait_transaction_confirmed: bool,
     ) -> Result<(), anyhow::Error> {
         let executor = TradeFactory::create_executor(dex_type.clone());
-        let protocol_params = if let Some(params) = extension_params {
-            params
-        } else {
-            match dex_type {
-                DexType::PumpFun => Box::new(PumpFunParams::default()) as Box<dyn ProtocolParams>,
-                DexType::PumpSwap => Box::new(PumpSwapParams::default()) as Box<dyn ProtocolParams>,
-                DexType::Bonk => Box::new(BonkParams::default()) as Box<dyn ProtocolParams>,
-                DexType::RaydiumCpmm => {
-                    Box::new(RaydiumCpmmParams::default()) as Box<dyn ProtocolParams>
-                }
-            }
-        };
-        let buy_params = BuyParams {
+        let protocol_params = extension_params;
+
+        let final_lookup_table_key = lookup_table_key.or(self.trade_config.lookup_table_key);
+
+        let mut buy_params = BuyParams {
             rpc: Some(self.rpc.clone()),
             payer: self.payer.clone(),
             mint: mint,
@@ -196,15 +200,16 @@ impl SolanaTrade {
             sol_amount: sol_amount,
             slippage_basis_points: slippage_basis_points,
             priority_fee: self.trade_config.priority_fee.clone(),
-            lookup_table_key: self.trade_config.lookup_table_key,
+            lookup_table_key: final_lookup_table_key,
             recent_blockhash,
             data_size_limit: 0,
+            wait_transaction_confirmed: wait_transaction_confirmed,
             protocol_params: protocol_params.clone(),
         };
-        let mut priority_fee = buy_params.priority_fee.clone();
         if custom_buy_tip_fee.is_some() {
-            priority_fee.buy_tip_fee = custom_buy_tip_fee.unwrap();
-            priority_fee.buy_tip_fees = priority_fee
+            buy_params.priority_fee.buy_tip_fee = custom_buy_tip_fee.unwrap();
+            buy_params.priority_fee.buy_tip_fees = buy_params
+                .priority_fee
                 .buy_tip_fees
                 .iter()
                 .map(|_| custom_buy_tip_fee.unwrap())
@@ -214,29 +219,24 @@ impl SolanaTrade {
 
         // Validate protocol params
         let is_valid_params = match dex_type {
-            DexType::PumpFun => protocol_params
-                .as_any()
-                .downcast_ref::<PumpFunParams>()
-                .is_some(),
-            DexType::PumpSwap => protocol_params
-                .as_any()
-                .downcast_ref::<PumpSwapParams>()
-                .is_some(),
-            DexType::Bonk => protocol_params
-                .as_any()
-                .downcast_ref::<BonkParams>()
-                .is_some(),
-            DexType::RaydiumCpmm => protocol_params
-                .as_any()
-                .downcast_ref::<RaydiumCpmmParams>()
-                .is_some(),
+            DexType::PumpFun => protocol_params.as_any().downcast_ref::<PumpFunParams>().is_some(),
+            DexType::PumpSwap => {
+                protocol_params.as_any().downcast_ref::<PumpSwapParams>().is_some()
+            }
+            DexType::Bonk => protocol_params.as_any().downcast_ref::<BonkParams>().is_some(),
+            DexType::RaydiumCpmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumAmmV4 => {
+                protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
+            }
         };
 
         if !is_valid_params {
             return Err(anyhow::anyhow!("Invalid protocol params for Trade"));
         }
 
-        executor.buy_with_tip(buy_with_tip_params).await
+        executor.buy_with_tip(buy_with_tip_params, self.middleware_manager.clone()).await
     }
 
     /// Execute a sell order for a specified token
@@ -252,6 +252,8 @@ impl SolanaTrade {
     /// * `custom_buy_tip_fee` - Optional custom tip fee for priority processing (in SOL)
     /// * `with_tip` - Optional boolean to indicate if the transaction should be sent with tip
     /// * `extension_params` - Optional protocol-specific parameters (uses defaults if None)
+    /// * `lookup_table_key` - Optional address lookup table key for transaction optimization
+    /// * `wait_transaction_confirmed` - Whether to wait for the transaction to be confirmed
     ///
     /// # Returns
     ///
@@ -288,6 +290,7 @@ impl SolanaTrade {
     ///     None,
     ///     false,
     ///     None,
+    ///     Some(lookup_table_pubkey),
     /// ).await?;
     /// ```
     pub async fn sell(
@@ -300,22 +303,16 @@ impl SolanaTrade {
         recent_blockhash: Hash,
         custom_buy_tip_fee: Option<f64>,
         with_tip: bool,
-        extension_params: Option<Box<dyn ProtocolParams>>,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        wait_transaction_confirmed: bool,
     ) -> Result<(), anyhow::Error> {
         let executor = TradeFactory::create_executor(dex_type.clone());
-        let protocol_params = if let Some(params) = extension_params {
-            params
-        } else {
-            match dex_type {
-                DexType::PumpFun => Box::new(PumpFunParams::default()) as Box<dyn ProtocolParams>,
-                DexType::PumpSwap => Box::new(PumpSwapParams::default()) as Box<dyn ProtocolParams>,
-                DexType::Bonk => Box::new(BonkParams::default()) as Box<dyn ProtocolParams>,
-                DexType::RaydiumCpmm => {
-                    Box::new(RaydiumCpmmParams::default()) as Box<dyn ProtocolParams>
-                }
-            }
-        };
-        let sell_params = SellParams {
+        let protocol_params = extension_params;
+
+        let final_lookup_table_key = lookup_table_key.or(self.trade_config.lookup_table_key);
+
+        let mut sell_params = SellParams {
             rpc: Some(self.rpc.clone()),
             payer: self.payer.clone(),
             mint: mint,
@@ -323,14 +320,15 @@ impl SolanaTrade {
             token_amount: Some(token_amount),
             slippage_basis_points: slippage_basis_points,
             priority_fee: self.trade_config.priority_fee.clone(),
-            lookup_table_key: self.trade_config.lookup_table_key,
+            lookup_table_key: final_lookup_table_key,
             recent_blockhash,
+            wait_transaction_confirmed: wait_transaction_confirmed,
             protocol_params: protocol_params.clone(),
         };
-        let mut priority_fee = sell_params.priority_fee.clone();
         if custom_buy_tip_fee.is_some() {
-            priority_fee.buy_tip_fee = custom_buy_tip_fee.unwrap();
-            priority_fee.buy_tip_fees = priority_fee
+            sell_params.priority_fee.buy_tip_fee = custom_buy_tip_fee.unwrap();
+            sell_params.priority_fee.buy_tip_fees = sell_params
+                .priority_fee
                 .buy_tip_fees
                 .iter()
                 .map(|_| custom_buy_tip_fee.unwrap())
@@ -340,22 +338,17 @@ impl SolanaTrade {
 
         // Validate protocol params
         let is_valid_params = match dex_type {
-            DexType::PumpFun => protocol_params
-                .as_any()
-                .downcast_ref::<PumpFunParams>()
-                .is_some(),
-            DexType::PumpSwap => protocol_params
-                .as_any()
-                .downcast_ref::<PumpSwapParams>()
-                .is_some(),
-            DexType::Bonk => protocol_params
-                .as_any()
-                .downcast_ref::<BonkParams>()
-                .is_some(),
-            DexType::RaydiumCpmm => protocol_params
-                .as_any()
-                .downcast_ref::<RaydiumCpmmParams>()
-                .is_some(),
+            DexType::PumpFun => protocol_params.as_any().downcast_ref::<PumpFunParams>().is_some(),
+            DexType::PumpSwap => {
+                protocol_params.as_any().downcast_ref::<PumpSwapParams>().is_some()
+            }
+            DexType::Bonk => protocol_params.as_any().downcast_ref::<BonkParams>().is_some(),
+            DexType::RaydiumCpmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumAmmV4 => {
+                protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
+            }
         };
 
         if !is_valid_params {
@@ -364,9 +357,9 @@ impl SolanaTrade {
 
         // Execute sell based on tip preference
         if with_tip {
-            executor.sell_with_tip(sell_with_tip_params).await
+            executor.sell_with_tip(sell_with_tip_params, self.middleware_manager.clone()).await
         } else {
-            executor.sell(sell_params).await
+            executor.sell(sell_params, self.middleware_manager.clone()).await
         }
     }
 
@@ -385,7 +378,10 @@ impl SolanaTrade {
     /// * `slippage_basis_points` - Optional slippage tolerance in basis points (e.g., 100 = 1%)
     /// * `recent_blockhash` - Recent blockhash for transaction validity
     /// * `custom_buy_tip_fee` - Optional custom tip fee for priority processing (in SOL)
+    /// * `with_tip` - Whether to use tip for priority processing
     /// * `extension_params` - Optional protocol-specific parameters (uses defaults if None)
+    /// * `lookup_table_key` - Optional lookup table key for address lookup optimization
+    /// * `wait_transaction_confirmed` - Whether to wait for the transaction to be confirmed
     ///
     /// # Returns
     ///
@@ -424,6 +420,8 @@ impl SolanaTrade {
     ///     slippage,
     ///     recent_blockhash,
     ///     None,
+    ///     false,
+    ///     None,
     ///     None,
     /// ).await?;
     /// ```
@@ -438,7 +436,9 @@ impl SolanaTrade {
         recent_blockhash: Hash,
         custom_buy_tip_fee: Option<f64>,
         with_tip: bool,
-        extension_params: Option<Box<dyn ProtocolParams>>,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        wait_transaction_confirmed: bool,
     ) -> Result<(), anyhow::Error> {
         if percent == 0 || percent > 100 {
             return Err(anyhow::anyhow!("Percentage must be between 1 and 100"));
@@ -454,6 +454,8 @@ impl SolanaTrade {
             custom_buy_tip_fee,
             with_tip,
             extension_params,
+            lookup_table_key,
+            wait_transaction_confirmed,
         )
         .await
     }

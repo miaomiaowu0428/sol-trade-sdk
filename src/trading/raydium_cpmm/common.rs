@@ -1,10 +1,28 @@
 use crate::{
     common::SolanaRpcClient,
-    constants::{self, raydium_cpmm::accounts::WSOL_TOKEN_ACCOUNT},
-    trading::raydium_cpmm::pool::Pool,
+    constants::{
+        self,
+        raydium_cpmm::accounts::{self},
+    },
 };
 use anyhow::anyhow;
 use solana_sdk::pubkey::Pubkey;
+use solana_streamer_sdk::streaming::event_parser::protocols::raydium_cpmm::types::{
+    pool_state_decode, PoolState,
+};
+
+pub async fn fetch_pool_state(
+    rpc: &SolanaRpcClient,
+    pool_address: &Pubkey,
+) -> Result<PoolState, anyhow::Error> {
+    let account = rpc.get_account(pool_address).await?;
+    if account.owner != accounts::RAYDIUM_CPMM {
+        return Err(anyhow!("Account is not owned by Raydium Cpmm program"));
+    }
+    let pool_state = pool_state_decode(&account.data[8..])
+        .ok_or_else(|| anyhow!("Failed to decode pool state"))?;
+    Ok(pool_state)
+}
 
 pub fn get_pool_pda(amm_config: &Pubkey, mint1: &Pubkey, mint2: &Pubkey) -> Option<Pubkey> {
     let seeds: &[&[u8]; 4] = &[
@@ -19,120 +37,19 @@ pub fn get_pool_pda(amm_config: &Pubkey, mint1: &Pubkey, mint2: &Pubkey) -> Opti
 }
 
 pub fn get_vault_pda(pool_state: &Pubkey, mint: &Pubkey) -> Option<Pubkey> {
-    let seeds: &[&[u8]; 3] = &[
-        constants::raydium_cpmm::seeds::POOL_VAULT_SEED,
-        pool_state.as_ref(),
-        mint.as_ref(),
-    ];
+    let seeds: &[&[u8]; 3] =
+        &[constants::raydium_cpmm::seeds::POOL_VAULT_SEED, pool_state.as_ref(), mint.as_ref()];
     let program_id: &Pubkey = &constants::raydium_cpmm::accounts::RAYDIUM_CPMM;
     let pda: Option<(Pubkey, u8)> = Pubkey::try_find_program_address(seeds, program_id);
     pda.map(|pubkey| pubkey.0)
 }
 
 pub fn get_observation_state_pda(pool_state: &Pubkey) -> Option<Pubkey> {
-    let seeds: &[&[u8]; 2] = &[
-        constants::raydium_cpmm::seeds::OBSERVATION_STATE_SEED,
-        pool_state.as_ref(),
-    ];
+    let seeds: &[&[u8]; 2] =
+        &[constants::raydium_cpmm::seeds::OBSERVATION_STATE_SEED, pool_state.as_ref()];
     let program_id: &Pubkey = &constants::raydium_cpmm::accounts::RAYDIUM_CPMM;
     let pda: Option<(Pubkey, u8)> = Pubkey::try_find_program_address(seeds, program_id);
     pda.map(|pubkey| pubkey.0)
-}
-
-pub async fn get_buy_token_amount(
-    rpc: &SolanaRpcClient,
-    pool_state: &Pubkey,
-    sol_amount: u64,
-) -> Result<u64, anyhow::Error> {
-    let pool = Pool::fetch(rpc, pool_state).await?;
-    let is_token0_input = if pool.token0_mint == WSOL_TOKEN_ACCOUNT {
-        true
-    } else {
-        false
-    };
-    let (token0_balance, token1_balance) =
-        get_pool_token_balances(rpc, pool_state, &pool.token0_mint, &pool.token1_mint).await?;
-
-    // 使用恒定乘积公式计算
-
-    let (reserve_in, reserve_out) = if is_token0_input {
-        (token0_balance, token1_balance)
-    } else {
-        (token1_balance, token0_balance)
-    };
-
-    if reserve_in == 0 || reserve_out == 0 {
-        return Err(anyhow!("池子储备金为零，无法进行交换"));
-    }
-
-    // 使用 u128 防止溢出
-    let amount_in_128 = sol_amount as u128;
-    let reserve_in_128 = reserve_in as u128;
-    let reserve_out_128 = reserve_out as u128;
-
-    // 恒定乘积公式: amount_out = (amount_in * reserve_out) / (reserve_in + amount_in)
-    let numerator = amount_in_128 * reserve_out_128;
-    let denominator = reserve_in_128 + amount_in_128;
-
-    if denominator == 0 {
-        return Err(anyhow!("分母为零，计算错误"));
-    }
-
-    let amount_out = numerator / denominator;
-
-    // 检查是否超出储备金
-    if amount_out >= reserve_out_128 {
-        return Err(anyhow!("输出数量超过池子储备金"));
-    }
-
-    Ok(amount_out as u64)
-}
-
-pub async fn get_sell_sol_amount(
-    rpc: &SolanaRpcClient,
-    pool_state: &Pubkey,
-    token_amount: u64,
-) -> Result<u64, anyhow::Error> {
-    let pool = Pool::fetch(rpc, pool_state).await?;
-    let is_token0_sol = if pool.token0_mint == WSOL_TOKEN_ACCOUNT {
-        true
-    } else {
-        false
-    };
-    let (token0_balance, token1_balance) =
-        get_pool_token_balances(rpc, pool_state, &pool.token0_mint, &pool.token1_mint).await?;
-
-    let (reserve_in, reserve_out) = if is_token0_sol {
-        (token1_balance, token0_balance)
-    } else {
-        (token0_balance, token1_balance)
-    };
-
-    if reserve_in == 0 || reserve_out == 0 {
-        return Err(anyhow!("池子储备金为零，无法进行交换"));
-    }
-
-    // 使用 u128 防止溢出
-    let amount_in_128 = token_amount as u128;
-    let reserve_in_128 = reserve_in as u128;
-    let reserve_out_128 = reserve_out as u128;
-
-    // 恒定乘积公式: amount_out = (amount_in * reserve_out) / (reserve_in + amount_in)
-    let numerator = amount_in_128 * reserve_out_128;
-    let denominator = reserve_in_128 + amount_in_128;
-
-    if denominator == 0 {
-        return Err(anyhow!("分母为零，计算错误"));
-    }
-
-    let amount_out = numerator / denominator;
-
-    // 检查是否超出储备金
-    if amount_out >= reserve_out_128 {
-        return Err(anyhow!("输出数量超过池子储备金"));
-    }
-
-    Ok(amount_out as u64)
 }
 
 /// 获取池子中两个代币的余额
@@ -151,15 +68,11 @@ pub async fn get_pool_token_balances(
     let token1_balance = rpc.get_token_account_balance(&token1_vault).await?;
 
     // 解析余额字符串为 u64
-    let token0_amount = token0_balance
-        .amount
-        .parse::<u64>()
-        .map_err(|e| anyhow!("解析 token0 余额失败: {}", e))?;
+    let token0_amount =
+        token0_balance.amount.parse::<u64>().map_err(|e| anyhow!("解析 token0 余额失败: {}", e))?;
 
-    let token1_amount = token1_balance
-        .amount
-        .parse::<u64>()
-        .map_err(|e| anyhow!("解析 token1 余额失败: {}", e))?;
+    let token1_amount =
+        token1_balance.amount.parse::<u64>().map_err(|e| anyhow!("解析 token1 余额失败: {}", e))?;
 
     Ok((token0_amount, token1_amount))
 }

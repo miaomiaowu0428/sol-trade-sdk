@@ -58,6 +58,28 @@ pub const BLOX_TIP_ACCOUNTS: &[Pubkey] = &[
     pubkey!("FogxVNs6Mm2w9rnGL1vkARSwJxvLE8mujTv3LK8RnUhF"),
 ];
 
+pub const NODE1_TIP_ACCOUNTS: &[Pubkey] = &[
+    pubkey!("node1PqAa3BWWzUnTHVbw8NJHC874zn9ngAkXjgWEej"),
+    pubkey!("node1UzzTxAAeBTpfZkQPJXBAqixsbdth11ba1NXLBG"),
+    pubkey!("node1Qm1bV4fwYnCurP8otJ9s5yrkPq7SPZ5uhj3Tsv"),
+    pubkey!("node1PUber6SFmSQgvf2ECmXsHP5o3boRSGhvJyPMX1"),
+    pubkey!("node1AyMbeqiVN6eoQzEAwCA6Pk826hrdqdAHR7cdJ3"),
+    pubkey!("node1YtWCoTwwVYTFLfS19zquRQzYX332hs1HEuRBjC"),
+];
+
+pub const FLASHBLOCK_TIP_ACCOUNTS: &[Pubkey] = &[
+    pubkey!("FLaShB3iXXTWE1vu9wQsChUKq3HFtpMAhb8kAh1pf1wi"),
+    pubkey!("FLashhsorBmM9dLpuq6qATawcpqk1Y2aqaZfkd48iT3W"),
+    pubkey!("FLaSHJNm5dWYzEgnHJWWJP5ccu128Mu61NJLxUf7mUXU"),
+    pubkey!("FLaSHR4Vv7sttd6TyDF4yR1bJyAxRwWKbohDytEMu3wL"),
+    pubkey!("FLASHRzANfcAKDuQ3RXv9hbkBy4WVEKDzoAgxJ56DiE4"),
+    pubkey!("FLasHstqx11M8W56zrSEqkCyhMCCpr6ze6Mjdvqope5s"),
+    pubkey!("FLAShWTjcweNT4NSotpjpxAkwxUr2we3eXQGhpTVzRwy"),
+    pubkey!("FLasHXTqrbNvpWFB6grN47HGZfK6pze9HLNTgbukfPSk"),
+    pubkey!("FLAshyAyBcKb39KPxSzXcepiS8iDYUhDGwJcJDPX4g2B"),
+    pubkey!("FLAsHZTRcf3Dy1APaz6j74ebdMC6Xx4g6i9YxjyrDybR"),
+];
+
 // NewYork,
 // Frankfurt,
 // Amsterdam,
@@ -70,7 +92,7 @@ pub const BLOX_TIP_ACCOUNTS: &[Pubkey] = &[
 pub const SWQOS_ENDPOINTS_JITO: [&str; 8] = [
     "https://ny.mainnet.block-engine.jito.wtf",
     "https://frankfurt.mainnet.block-engine.jito.wtf",
-    "https://ams.block-engine.jito.wtf",
+    "https://amsterdam.mainnet.block-engine.jito.wtf",
     "https://slc.mainnet.block-engine.jito.wtf",
     "https://tokyo.mainnet.block-engine.jito.wtf",
     "https://london.mainnet.block-engine.jito.wtf",
@@ -81,7 +103,7 @@ pub const SWQOS_ENDPOINTS_JITO: [&str; 8] = [
 pub const SWQOS_ENDPOINTS_NEXTBLOCK: [&str; 8] = [
     "http://ny.nextblock.io",
     "http://fra.nextblock.io",
-    "http://slc.nextblock.io",
+    "http://fra.nextblock.io",
     "http://slc.nextblock.io",
     "http://tokyo.nextblock.io",
     "http://london.nextblock.io",
@@ -93,9 +115,9 @@ pub const SWQOS_ENDPOINTS_ZERO_SLOT: [&str; 8] = [
     "http://ny.0slot.trade",
     "http://de.0slot.trade",
     "http://ams.0slot.trade",
+    "http://ny.0slot.trade",
+    "http://jp.0slot.trade",
     "http://ams.0slot.trade",
-    "http://jp.0slot.trade",
-    "http://jp.0slot.trade",
     "http://la.0slot.trade",
     "http://de.0slot.trade",
 ];
@@ -104,7 +126,7 @@ pub const SWQOS_ENDPOINTS_TEMPORAL: [&str; 8] = [
     "http://ewr1.nozomi.temporal.xyz",
     "http://fra2.nozomi.temporal.xyz",
     "http://ams1.nozomi.temporal.xyz",
-    "http://ams1.nozomi.temporal.xyz",
+    "http://ewr1.nozomi.temporal.xyz",
     "http://tyo1.nozomi.temporal.xyz",
     "http://sgp1.nozomi.temporal.xyz",
     "http://pit1.nozomi.temporal.xyz",
@@ -115,9 +137,32 @@ pub const SWQOS_ENDPOINTS_BLOX: [&str; 8] = [
     "https://ny.solana.dex.blxrbdn.com",
     "https://germany.solana.dex.blxrbdn.com",
     "https://amsterdam.solana.dex.blxrbdn.com",
-    "https://amsterdam.solana.dex.blxrbdn.com",
+    "https://ny.solana.dex.blxrbdn.com",
     "https://tokyo.solana.dex.blxrbdn.com",
     "https://uk.solana.dex.blxrbdn.com",
     "https://la.solana.dex.blxrbdn.com",
     "https://germany.solana.dex.blxrbdn.com",
 ];
+
+pub const SWQOS_ENDPOINTS_NODE1: [&str; 8] = [
+    "http://ny.node1.me",
+    "http://fra.node1.me",
+    "http://ams.node1.me",
+    "http://ny.node1.me",
+    "http://fra.node1.me",
+    "http://ams.node1.me",
+    "http://ny.node1.me",
+    "http://fra.node1.me",
+];
+
+pub const SWQOS_ENDPOINTS_FLASHBLOCK: [&str; 8] = [
+    "http://ny.flashblock.trade",
+    "http://fra.flashblock.trade",
+    "http://ams.flashblock.trade",
+    "http://slc.flashblock.trade",
+    "http://singapore.flashblock.trade",
+    "http://london.flashblock.trade",
+    "http://ny.flashblock.trade",
+    "http://ny.flashblock.trade",
+];
+

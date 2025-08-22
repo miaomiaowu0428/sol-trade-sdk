@@ -5,6 +5,8 @@ pub mod nextblock;
 pub mod solana_rpc;
 pub mod temporal;
 pub mod zeroslot;
+pub mod node1;
+pub mod flashblock;
 
 use std::sync::Arc;
 
@@ -14,15 +16,26 @@ use tokio::sync::RwLock;
 use anyhow::Result;
 
 use crate::{
-    common::SolanaRpcClient,
+    common::SolanaRpcClient, 
     constants::swqos::{
-        SWQOS_ENDPOINTS_BLOX, SWQOS_ENDPOINTS_JITO, SWQOS_ENDPOINTS_NEXTBLOCK,
-        SWQOS_ENDPOINTS_TEMPORAL, SWQOS_ENDPOINTS_ZERO_SLOT,
-    },
+        SWQOS_ENDPOINTS_BLOX, 
+        SWQOS_ENDPOINTS_JITO, 
+        SWQOS_ENDPOINTS_NEXTBLOCK, 
+        SWQOS_ENDPOINTS_TEMPORAL, 
+        SWQOS_ENDPOINTS_ZERO_SLOT, 
+        SWQOS_ENDPOINTS_NODE1, 
+        SWQOS_ENDPOINTS_FLASHBLOCK
+    }, 
     swqos::{
-        bloxroute::BloxrouteClient, jito::JitoClient, nextblock::NextBlockClient,
-        solana_rpc::SolRpcClient, temporal::TemporalClient, zeroslot::ZeroSlotClient,
-    },
+        bloxroute::BloxrouteClient, 
+        jito::JitoClient, 
+        nextblock::NextBlockClient, 
+        solana_rpc::SolRpcClient, 
+        temporal::TemporalClient, 
+        zeroslot::ZeroSlotClient, 
+        node1::Node1Client, 
+        flashblock::FlashBlockClient
+    }
 };
 
 lazy_static::lazy_static! {
@@ -56,6 +69,8 @@ pub enum SwqosType {
     ZeroSlot,
     Temporal,
     Bloxroute,
+    Node1,
+    FlashBlock,
     Default,
 }
 
@@ -97,6 +112,8 @@ pub enum SwqosConfig {
     Bloxroute(String, SwqosRegion),
     Temporal(String, SwqosRegion),
     ZeroSlot(String, SwqosRegion),
+    Node1(String, SwqosRegion),
+    FlashBlock(String, SwqosRegion),
 }
 
 impl SwqosConfig {
@@ -107,6 +124,8 @@ impl SwqosConfig {
             SwqosType::ZeroSlot => SWQOS_ENDPOINTS_ZERO_SLOT[region as usize].to_string(),
             SwqosType::Temporal => SWQOS_ENDPOINTS_TEMPORAL[region as usize].to_string(),
             SwqosType::Bloxroute => SWQOS_ENDPOINTS_BLOX[region as usize].to_string(),
+            SwqosType::Node1 => SWQOS_ENDPOINTS_NODE1[region as usize].to_string(),
+            SwqosType::FlashBlock => SWQOS_ENDPOINTS_FLASHBLOCK[region as usize].to_string(),
             SwqosType::Default => "".to_string(),
         }
     }
@@ -149,7 +168,25 @@ impl SwqosConfig {
                 let bloxroute_client =
                     BloxrouteClient::new(rpc_url.clone(), endpoint.to_string(), auth_token);
                 Arc::new(bloxroute_client)
-            }
+            },
+            SwqosConfig::Node1(auth_token, region) => {
+                let endpoint = SwqosConfig::get_endpoint(SwqosType::Node1, region);
+                let node1_client = Node1Client::new(
+                    rpc_url.clone(),
+                    endpoint.to_string(),
+                    auth_token
+                );
+                Arc::new(node1_client)
+            },
+            SwqosConfig::FlashBlock(auth_token, region) => {
+                let endpoint = SwqosConfig::get_endpoint(SwqosType::FlashBlock, region);
+                let flashblock_client = FlashBlockClient::new(
+                    rpc_url.clone(),
+                    endpoint.to_string(),
+                    auth_token
+                );
+                Arc::new(flashblock_client)
+            },
             SwqosConfig::Default(endpoint) => {
                 let rpc = SolanaRpcClient::new_with_commitment(endpoint, commitment);
                 let rpc_client = SolRpcClient::new(Arc::new(rpc));

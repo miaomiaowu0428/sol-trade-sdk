@@ -1,17 +1,29 @@
 use solana_hash::Hash;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
+use solana_streamer_sdk::streaming::event_parser::protocols::pumpfun::PumpFunTradeEvent;
+use solana_streamer_sdk::streaming::event_parser::protocols::pumpswap::{
+    PumpSwapBuyEvent, PumpSwapSellEvent,
+};
+use solana_streamer_sdk::streaming::event_parser::protocols::raydium_amm_v4::types::AmmInfo;
+use solana_streamer_sdk::streaming::event_parser::protocols::raydium_amm_v4::RaydiumAmmV4SwapEvent;
 use std::sync::Arc;
 
 use super::traits::ProtocolParams;
 use crate::common::bonding_curve::BondingCurveAccount;
 use crate::common::{PriorityFee, SolanaRpcClient};
-use crate::constants::bonk::accounts::{PLATFORM_FEE_RATE, PROTOCOL_FEE_RATE, SHARE_FEE_RATE};
+use crate::constants::bonk::accounts::{
+    self, PLATFORM_FEE_RATE, PROTOCOL_FEE_RATE, SHARE_FEE_RATE,
+};
 use crate::solana_streamer_sdk::streaming::event_parser::common::EventType;
 use crate::solana_streamer_sdk::streaming::event_parser::protocols::bonk::BonkTradeEvent;
 use crate::swqos::SwqosClient;
 use crate::trading::bonk::common::{get_amount_in, get_amount_in_net, get_amount_out};
+use crate::trading::common::get_multi_token_balances;
+use crate::trading::pumpswap::common::get_token_balances;
+use crate::trading::raydium_cpmm::common::get_pool_token_balances;
 
-/// 通用买入参数
+/// Common buy parameters
+/// Contains all necessary information for executing buy transactions
 #[derive(Clone)]
 pub struct BuyParams {
     pub rpc: Option<Arc<SolanaRpcClient>>,
@@ -24,10 +36,12 @@ pub struct BuyParams {
     pub lookup_table_key: Option<Pubkey>,
     pub recent_blockhash: Hash,
     pub data_size_limit: u32,
+    pub wait_transaction_confirmed: bool,
     pub protocol_params: Box<dyn ProtocolParams>,
 }
 
-/// 带MEV服务的买入参数
+/// Buy parameters with MEV service support
+/// Extends BuyParams with MEV client configurations for transaction acceleration
 #[derive(Clone)]
 pub struct BuyWithTipParams {
     pub rpc: Option<Arc<SolanaRpcClient>>,
@@ -41,10 +55,12 @@ pub struct BuyWithTipParams {
     pub lookup_table_key: Option<Pubkey>,
     pub recent_blockhash: Hash,
     pub data_size_limit: u32,
+    pub wait_transaction_confirmed: bool,
     pub protocol_params: Box<dyn ProtocolParams>,
 }
 
-/// 通用卖出参数
+/// Common sell parameters
+/// Contains all necessary information for executing sell transactions
 #[derive(Clone)]
 pub struct SellParams {
     pub rpc: Option<Arc<SolanaRpcClient>>,
@@ -56,10 +72,12 @@ pub struct SellParams {
     pub priority_fee: PriorityFee,
     pub lookup_table_key: Option<Pubkey>,
     pub recent_blockhash: Hash,
+    pub wait_transaction_confirmed: bool,
     pub protocol_params: Box<dyn ProtocolParams>,
 }
 
-/// 带MEV服务的卖出参数
+/// Sell parameters with MEV service support
+/// Extends SellParams with MEV client configurations for transaction acceleration
 #[derive(Clone)]
 pub struct SellWithTipParams {
     pub rpc: Option<Arc<SolanaRpcClient>>,
@@ -72,19 +90,50 @@ pub struct SellWithTipParams {
     pub priority_fee: PriorityFee,
     pub lookup_table_key: Option<Pubkey>,
     pub recent_blockhash: Hash,
+    pub wait_transaction_confirmed: bool,
     pub protocol_params: Box<dyn ProtocolParams>,
 }
 
-/// PumpFun协议特定参数
+/// PumpFun protocol specific parameters
+/// Configuration parameters specific to PumpFun trading protocol
 #[derive(Clone)]
 pub struct PumpFunParams {
-    pub bonding_curve: Option<Arc<BondingCurveAccount>>,
+    pub bonding_curve: Arc<BondingCurveAccount>,
+    /// Whether to close token account when selling, only effective during sell operations
+    pub close_token_account_when_sell: Option<bool>,
 }
 
 impl PumpFunParams {
-    pub fn default() -> Self {
+    pub fn immediate_sell(close_token_account_when_sell: bool) -> Self {
         Self {
-            bonding_curve: None,
+            bonding_curve: Arc::new(BondingCurveAccount { ..Default::default() }),
+            close_token_account_when_sell: Some(close_token_account_when_sell),
+        }
+    }
+
+    pub fn from_dev_trade(
+        mint: &Pubkey,
+        dev_token_amount: u64,
+        dev_sol_amount: u64,
+        creator: Pubkey,
+        close_token_account_when_sell: Option<bool>,
+    ) -> Self {
+        let bonding_curve =
+            BondingCurveAccount::from_dev_trade(mint, dev_token_amount, dev_sol_amount, creator);
+        Self {
+            bonding_curve: Arc::new(bonding_curve),
+            close_token_account_when_sell: close_token_account_when_sell,
+        }
+    }
+
+    pub fn from_trade(
+        event: &PumpFunTradeEvent,
+        close_token_account_when_sell: Option<bool>,
+    ) -> Self {
+        let bonding_curve = BondingCurveAccount::from_trade(event);
+        Self {
+            bonding_curve: Arc::new(bonding_curve),
+            close_token_account_when_sell: close_token_account_when_sell,
         }
     }
 }
@@ -110,40 +159,60 @@ impl ProtocolParams for PumpFunParams {
 #[derive(Clone)]
 pub struct PumpSwapParams {
     /// Liquidity pool address
-    /// If None, it will be queried via RPC, which adds latency
-    pub pool: Option<Pubkey>,
-
+    pub pool: Pubkey,
     /// Base token mint address
     /// The mint account address of the base token in the trading pair
-    /// If None, it will be queried via RPC, which adds latency
-    pub base_mint: Option<Pubkey>,
-
+    pub base_mint: Pubkey,
     /// Quote token mint address
     /// The mint account address of the quote token in the trading pair, usually SOL or USDC
-    /// If None, it will be queried via RPC, which adds latency
-    pub quote_mint: Option<Pubkey>,
-
+    pub quote_mint: Pubkey,
     /// Base token reserves in the pool
-    pub pool_base_token_reserves: Option<u64>,
-
+    pub pool_base_token_reserves: u64,
     /// Quote token reserves in the pool
-    pub pool_quote_token_reserves: Option<u64>,
-
+    pub pool_quote_token_reserves: u64,
     /// Automatically handle WSOL wrapping
     /// When true, automatically handles wrapping and unwrapping operations between SOL and WSOL
     pub auto_handle_wsol: bool,
 }
 
 impl PumpSwapParams {
-    pub fn default() -> Self {
+    pub fn from_buy_trade(event: &PumpSwapBuyEvent) -> Self {
         Self {
-            pool: None,
-            base_mint: None,
-            quote_mint: None,
-            pool_base_token_reserves: None,
-            pool_quote_token_reserves: None,
+            pool: event.pool,
+            base_mint: event.base_mint,
+            quote_mint: event.quote_mint,
+            pool_base_token_reserves: event.pool_base_token_reserves,
+            pool_quote_token_reserves: event.pool_quote_token_reserves,
             auto_handle_wsol: true,
         }
+    }
+
+    pub fn from_sell_trade(event: &PumpSwapSellEvent) -> Self {
+        Self {
+            pool: event.pool,
+            base_mint: event.base_mint,
+            quote_mint: event.quote_mint,
+            pool_base_token_reserves: event.pool_base_token_reserves,
+            pool_quote_token_reserves: event.pool_quote_token_reserves,
+            auto_handle_wsol: true,
+        }
+    }
+
+    pub async fn from_pool_address_by_rpc(
+        rpc: &SolanaRpcClient,
+        pool_address: &Pubkey,
+    ) -> Result<Self, anyhow::Error> {
+        let pool_data = crate::trading::pumpswap::common::fetch_pool(rpc, pool_address).await?;
+        let (pool_base_token_reserves, pool_quote_token_reserves) =
+            get_token_balances(&pool_data, rpc).await?;
+        Ok(Self {
+            pool: pool_address.clone(),
+            base_mint: pool_data.base_mint,
+            quote_mint: pool_data.quote_mint,
+            pool_base_token_reserves: pool_base_token_reserves,
+            pool_quote_token_reserves: pool_quote_token_reserves,
+            auto_handle_wsol: true,
+        })
     }
 }
 
@@ -157,32 +226,31 @@ impl ProtocolParams for PumpSwapParams {
     }
 }
 
-/// Bonk协议特定参数
-#[derive(Clone)]
+/// Bonk protocol specific parameters
+/// Configuration parameters specific to Bonk trading protocol
+#[derive(Clone, Default)]
 pub struct BonkParams {
-    pub virtual_base: Option<u128>,
-    pub virtual_quote: Option<u128>,
-    pub real_base: Option<u128>,
-    pub real_quote: Option<u128>,
+    pub virtual_base: u128,
+    pub virtual_quote: u128,
+    pub real_base: u128,
+    pub real_quote: u128,
+    /// Token program ID
+    /// Specifies the program used by the token, usually spl_token::ID or spl_token_2022::ID
+    pub mint_token_program: Pubkey,
     pub auto_handle_wsol: bool,
 }
 
 impl BonkParams {
-    pub fn default() -> Self {
-        Self {
-            virtual_base: None,
-            virtual_quote: None,
-            real_base: None,
-            real_quote: None,
-            auto_handle_wsol: true,
-        }
+    pub fn immediate_sell() -> Self {
+        Self { auto_handle_wsol: true, ..Default::default() }
     }
     pub fn from_trade(trade_info: BonkTradeEvent) -> Self {
         Self {
-            virtual_base: Some(trade_info.virtual_base as u128),
-            virtual_quote: Some(trade_info.virtual_quote as u128),
-            real_base: Some(trade_info.real_base_after as u128),
-            real_quote: Some(trade_info.real_quote_after as u128),
+            virtual_base: trade_info.virtual_base as u128,
+            virtual_quote: trade_info.virtual_quote as u128,
+            real_base: trade_info.real_base_after as u128,
+            real_quote: trade_info.real_quote_after as u128,
+            mint_token_program: trade_info.base_token_program,
             auto_handle_wsol: true,
         }
     }
@@ -205,12 +273,9 @@ impl BonkParams {
                 0,
             )
         };
-        let real_quote = get_amount_in_net(
-            amount_in,
-            PROTOCOL_FEE_RATE,
-            PLATFORM_FEE_RATE,
-            SHARE_FEE_RATE,
-        ) as u128;
+        let real_quote =
+            get_amount_in_net(amount_in, PROTOCOL_FEE_RATE, PLATFORM_FEE_RATE, SHARE_FEE_RATE)
+                as u128;
         let amount_out = if trade_info.metadata.event_type == EventType::BonkBuyExactIn {
             get_amount_out(
                 trade_info.amount_in,
@@ -228,12 +293,32 @@ impl BonkParams {
         };
         let real_base = amount_out;
         Self {
-            virtual_base: Some(DEFAULT_VIRTUAL_BASE),
-            virtual_quote: Some(DEFAULT_VIRTUAL_QUOTE),
-            real_base: Some(real_base),
-            real_quote: Some(real_quote),
+            virtual_base: DEFAULT_VIRTUAL_BASE,
+            virtual_quote: DEFAULT_VIRTUAL_QUOTE,
+            real_base: real_base,
+            real_quote: real_quote,
+            mint_token_program: trade_info.base_token_program,
             auto_handle_wsol: true,
         }
+    }
+
+    pub async fn from_mint_by_rpc(
+        rpc: &SolanaRpcClient,
+        mint: &Pubkey,
+    ) -> Result<Self, anyhow::Error> {
+        let pool_address =
+            crate::trading::bonk::common::get_pool_pda(mint, &accounts::WSOL_TOKEN_ACCOUNT)
+                .unwrap();
+        let pool_data = crate::trading::bonk::common::fetch_pool_state(rpc, &pool_address).await?;
+        let token_account = rpc.get_account(&pool_data.base_mint).await?;
+        Ok(Self {
+            virtual_base: pool_data.virtual_base as u128,
+            virtual_quote: pool_data.virtual_quote as u128,
+            real_base: pool_data.real_base as u128,
+            real_quote: pool_data.real_quote as u128,
+            mint_token_program: token_account.owner,
+            auto_handle_wsol: true,
+        })
     }
 }
 
@@ -247,30 +332,45 @@ impl ProtocolParams for BonkParams {
     }
 }
 
-/// RaydiumCpmm协议特定参数
+/// RaydiumCpmm protocol specific parameters
+/// Configuration parameters specific to Raydium CPMM trading protocol
 #[derive(Clone)]
 pub struct RaydiumCpmmParams {
-    /// 池子状态账户地址
-    pub pool_state: Option<Pubkey>,
-    /// 代币程序ID
-    /// 指定代币使用的程序，通常为 spl_token::ID 或 spl_token_2022::ID
-    pub mint_token_program: Option<Pubkey>,
-    /// 指定 mint_token 在 pool_state 账户数据中的索引位置
-    /// 默认值为1，表示在索引1的位置
-    pub mint_token_in_pool_state_index: Option<usize>,
-    pub minimum_amount_out: Option<u64>,
+    /// Base token mint address
+    pub base_mint: Pubkey,
+    /// Quote token mint address
+    pub quote_mint: Pubkey,
+    /// Base token reserve amount in the pool
+    pub base_reserve: u64,
+    /// Quote token reserve amount in the pool
+    pub quote_reserve: u64,
+    /// Base token program ID (usually spl_token::ID or spl_token_2022::ID)
+    pub base_token_program: Pubkey,
+    /// Quote token program ID (usually spl_token::ID or spl_token_2022::ID)
+    pub quote_token_program: Pubkey,
+    /// Whether to automatically handle wSOL wrapping and unwrapping
     pub auto_handle_wsol: bool,
 }
 
 impl RaydiumCpmmParams {
-    pub fn default() -> Self {
-        Self {
-            pool_state: None,
-            mint_token_program: Some(spl_token::ID),
-            mint_token_in_pool_state_index: Some(1),
-            minimum_amount_out: None,
+    pub async fn from_pool_address_by_rpc(
+        rpc: &SolanaRpcClient,
+        pool_address: &Pubkey,
+    ) -> Result<Self, anyhow::Error> {
+        let pool =
+            crate::trading::raydium_cpmm::common::fetch_pool_state(rpc, pool_address).await?;
+        let (token0_balance, token1_balance) =
+            get_pool_token_balances(rpc, pool_address, &pool.token0_mint, &pool.token1_mint)
+                .await?;
+        Ok(Self {
+            base_mint: pool.token0_mint,
+            quote_mint: pool.token1_mint,
+            base_reserve: token0_balance,
+            quote_reserve: token1_balance,
+            base_token_program: pool.token0_program,
+            quote_token_program: pool.token1_program,
             auto_handle_wsol: true,
-        }
+        })
     }
 }
 
@@ -284,8 +384,79 @@ impl ProtocolParams for RaydiumCpmmParams {
     }
 }
 
+/// RaydiumCpmm protocol specific parameters
+/// Configuration parameters specific to Raydium CPMM trading protocol
+#[derive(Clone)]
+pub struct RaydiumAmmV4Params {
+    /// AMM pool address
+    pub amm: Pubkey,
+    /// Base token (coin) mint address
+    pub coin_mint: Pubkey,
+    /// Quote token (pc) mint address  
+    pub pc_mint: Pubkey,
+    /// Pool's coin token account address
+    pub token_coin: Pubkey,
+    /// Pool's pc token account address
+    pub token_pc: Pubkey,
+    /// Current coin reserve amount in the pool
+    pub coin_reserve: u64,
+    /// Current pc reserve amount in the pool
+    pub pc_reserve: u64,
+    /// Whether to automatically handle wSOL wrapping and unwrapping
+    pub auto_handle_wsol: bool,
+}
+
+impl RaydiumAmmV4Params {
+    pub fn from_amm_info_and_reserves(
+        amm: Pubkey,
+        amm_info: AmmInfo,
+        coin_reserve: u64,
+        pc_reserve: u64,
+    ) -> Self {
+        Self {
+            amm,
+            coin_mint: amm_info.coin_mint,
+            pc_mint: amm_info.pc_mint,
+            token_coin: amm_info.token_coin,
+            token_pc: amm_info.token_pc,
+            coin_reserve,
+            pc_reserve,
+            auto_handle_wsol: true,
+        }
+    }
+    pub async fn from_amm_address_by_rpc(
+        rpc: &SolanaRpcClient,
+        amm: Pubkey,
+    ) -> Result<Self, anyhow::Error> {
+        let amm_info = crate::trading::raydium_amm_v4::common::fetch_amm_info(rpc, amm).await?;
+        let (coin_reserve, pc_reserve) =
+            get_multi_token_balances(rpc, &amm_info.token_coin, &amm_info.token_pc).await?;
+        Ok(Self {
+            amm,
+            coin_mint: amm_info.coin_mint,
+            pc_mint: amm_info.pc_mint,
+            token_coin: amm_info.token_coin,
+            token_pc: amm_info.token_pc,
+            coin_reserve,
+            pc_reserve,
+            auto_handle_wsol: true,
+        })
+    }
+}
+
+impl ProtocolParams for RaydiumAmmV4Params {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn ProtocolParams> {
+        Box::new(self.clone())
+    }
+}
+
 impl BuyParams {
-    /// 转换为BuyWithTipParams
+    /// Convert to BuyWithTipParams
+    /// Transforms basic buy parameters into MEV-enabled parameters
     pub fn with_tip(self, swqos_clients: Vec<Arc<SwqosClient>>) -> BuyWithTipParams {
         BuyWithTipParams {
             rpc: self.rpc,
@@ -299,13 +470,15 @@ impl BuyParams {
             lookup_table_key: self.lookup_table_key,
             recent_blockhash: self.recent_blockhash,
             data_size_limit: self.data_size_limit,
+            wait_transaction_confirmed: self.wait_transaction_confirmed,
             protocol_params: self.protocol_params,
         }
     }
 }
 
 impl SellParams {
-    /// 转换为SellWithTipParams
+    /// Convert to SellWithTipParams
+    /// Transforms basic sell parameters into MEV-enabled parameters
     pub fn with_tip(self, swqos_clients: Vec<Arc<SwqosClient>>) -> SellWithTipParams {
         SellWithTipParams {
             rpc: self.rpc,
@@ -318,6 +491,7 @@ impl SellParams {
             priority_fee: self.priority_fee,
             lookup_table_key: self.lookup_table_key,
             recent_blockhash: self.recent_blockhash,
+            wait_transaction_confirmed: self.wait_transaction_confirmed,
             protocol_params: self.protocol_params,
         }
     }
